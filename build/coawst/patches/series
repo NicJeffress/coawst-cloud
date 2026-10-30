@@ -1,0 +1,11 @@
+# COAWST patch series, applied in this order by apply_series.sh.
+#
+# Patches are grouped by how well established they are:
+#   1-fixes/          COAWST did something wrong; each has a test that fails
+#                     without the patch and passes with it
+#   2-improvements/   no change to the physics (or a new capability); each has a
+#                     test that results are unchanged
+#   3-experimental/   off unless a cpp option switches them on; the build is
+#                     unchanged with the option off
+#
+# Empty: this commit builds COAWST as shipped.

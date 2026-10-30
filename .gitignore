@@ -1,0 +1,21 @@
+# Source archives and build output
+build/coawst/vendor/*.tar.gz
+*.log
+__pycache__/
+output/
+runs/
+
+# Credentials must never be committed
+*.json.key
+*-key.json
+*credentials*.json
+service-account*.json
+.env
+.env.*
+id_rsa*
+id_ed25519*
+*.pem
+*.p12
+
+# Local configuration (project, bucket, account names)
+launch/config.local.*
