@@ -1,0 +1,152 @@
+--- a/SWAN/src/swancom2.ftn
++++ b/SWAN/src/swancom2.ftn
+@@ -1309,7 +1309,7 @@
+ !
+ ! Second moment of area. 
+ !           
+-            SMA        = VEGDIL_LOC*VEGTHK_LOC**(3./12.) 
++            SMA        = VEGDIL_LOC*VEGTHK_LOC**3/12.
+             CFF1       = RHO*VEGDIL_LOC*(ORBVEL**2.)*(SLAYH**3.)
+ !            
+ !  Avoid division by zero later. 
+@@ -1318,7 +1318,7 @@
+ !
+ ! Cauchy number. 
+ !
+-            CAUCHY_NUM = MIN(CFF1/(CFF2+MAX_EPS), MAX_EPS)
++            CAUCHY_NUM = MIN(CFF1/CFF2, MAX_EPS)
+ ! 
+             LAYH_RAT   = SLAYH/MIN(ABRBOT, MAX_EPS)
+             CFF3       = MIN( ( 0.7*(CAUCHY_NUM*LAYH_RAT)**(-0.21) ),  
+@@ -1359,8 +1359,18 @@
+ !
+ ! If veg height > depth. 
+ !
+-      ELSE IF ( DEP2(KCGRD(1)).LT.SLAYH ) THEN
+-         VEGDRL_CAL=1.95
++      ELSE
++!        Project patch: plants up to or through the surface. Cd from
++!        the VEGETATION 3 drag method, as for submerged plants (it was
++!        a fixed 1.95; depth = height had no branch), with the canopy
++!        filling the water column (alpha = 1).
++         IF    ( VEGDRL(1).EQ.1. ) THEN
++            VEGDRL_CAL = 1.
++         ELSEIF( VEGDRL(1).EQ.2. ) THEN
++            KC_NUM     = MIN( SQRT(2.*ETOT)*SMEBRK*COSH(KD)/SINH(KD)
++     &                        *(2.*PI/SMEBRK)/VEGDIL_LOC, MAX_EPS )
++            VEGDRL_CAL = MIN(EXP(-0.0138*KC_NUM)/(KC_NUM**0.3),MAX_EPS)
++         ENDIF
+ !
+          SINHK = SINH(KD)
+          A     = SINHK**3
+--- a/SWAN/src/swanmain.ftn
++++ b/SWAN/src/swanmain.ftn
+@@ -6421,7 +6421,7 @@
+ !     ***** compute plant height spatially varying *****                  40.55
+ !
+           IF (VARNPH) THEN
+-             XNPH = SVALQI (XP, YP, 16, NPHTF, 1 ,IX ,IY)                 40.55
++             XNPH = SVALQI (XP, YP, 18, NPHTF, 1 ,IX ,IY)                 40.55
+              COMPDA(INDX,JNPHT2) = XNPH                                   40.55
+              COMPDA(INDX,JNPHT3) = XNPH                                   40.55
+           ENDIF
+@@ -6429,7 +6429,7 @@
+ !     ***** compute plant diameter spatially varying *****                40.55
+ !
+           IF (VARNPD) THEN
+-             XNPD = SVALQI (XP, YP, 17, NPDAF, 1 ,IX ,IY)                 40.55
++             XNPD = SVALQI (XP, YP, 19, NPDAF, 1 ,IX ,IY)                 40.55
+              COMPDA(INDX,JNPDA2) = XNPD                                   40.55
+              COMPDA(INDX,JNPDA3) = XNPD                                   40.55
+           ENDIF
+@@ -6437,7 +6437,7 @@
+ !     ***** compute plant thickness spatially varying *****               40.55
+ !
+           IF (VARNPT) THEN
+-             XNPT = SVALQI (XP, YP, 18, NPTKF, 1 ,IX ,IY)                 40.55
++             XNPT = SVALQI (XP, YP, 20, NPTKF, 1 ,IX ,IY)                 40.55
+              COMPDA(INDX,JNPTK2) = XNPT                                   40.55
+              COMPDA(INDX,JNPTK3) = XNPT                                   40.55
+           ENDIF
+@@ -6653,7 +6653,7 @@
+              IF ( IGTYPE(16).EQ.3 ) THEN
+                 XNPH = NPHTF(INDX)
+              ELSE
+-                XNPH = SVALQI (XP, YP, 16, NPHTF, 1 ,0, 0)                40.80
++                XNPH = SVALQI (XP, YP, 18, NPHTF, 1 ,0, 0)                40.80
+              ENDIF
+              COMPDA(INDX,JNPHT2) = XNPH                                   40.80
+              COMPDA(INDX,JNPHT3) = XNPH                                   40.80
+@@ -6665,7 +6665,7 @@
+              IF ( IGTYPE(17).EQ.3 ) THEN
+                 XNPD = NPDAF(INDX)
+              ELSE
+-                XNPD = SVALQI (XP, YP, 17, NPDAF, 1 ,0, 0)                40.80
++                XNPD = SVALQI (XP, YP, 19, NPDAF, 1 ,0, 0)                40.80
+              ENDIF
+              COMPDA(INDX,JNPDA2) = XNPD                                   40.80
+              COMPDA(INDX,JNPDA3) = XNPD                                   40.80
+@@ -6677,7 +6677,7 @@
+              IF ( IGTYPE(18).EQ.3 ) THEN
+                 XNPT = NPTKF(INDX)
+              ELSE
+-                XNPT = SVALQI (XP, YP, 18, NPTKF, 1 ,0, 0)                40.80
++                XNPT = SVALQI (XP, YP, 20, NPTKF, 1 ,0, 0)                40.80
+              ENDIF
+              COMPDA(INDX,JNPTK2) = XNPT                                   40.80
+              COMPDA(INDX,JNPTK3) = XNPT                                   40.80
+--- a/SWAN/src/swanout1.ftn
++++ b/SWAN/src/swanout1.ftn
+@@ -3107,21 +3107,21 @@
+ !
+ !     vegetation drag coefficient 
+ !
+-      IF (OQPROC(80)) THEN                                               40.61
+-        IF (ITEST.GE.50 .OR. IOUTES .GE. 10) WRITE (PRTEST, 121) 80,
+-     &  VOQR(80), JDSXC
++      IF (OQPROC(201)) THEN                                               40.61
++        IF (ITEST.GE.50 .OR. IOUTES .GE. 10) WRITE (PRTEST, 121) 201,
++     &  VOQR(201), JDSXC
+         IF (JDSXC.GT.1) THEN                                              40.65
+            IF (OPTG.NE.5) THEN                                            40.80
+-             CALL SWIPOL(COMPDA(1,JDSXC),OVEXCV(80), XC, YC, MIP, CROSS,  40.86
+-     &                    VOQ(1,VOQR(80)) ,KGRPNT, COMPDA(1,JDP2))
++             CALL SWIPOL(COMPDA(1,JDSXC),OVEXCV(201),XC, YC, MIP, CROSS,  40.86
++     &                    VOQ(1,VOQR(201)) ,KGRPNT, COMPDA(1,JDP2))
+            ELSE                                                           40.80
+-              CALL SwanInterpolateOutput ( VOQ(1, VOQR(80)), VOQ(1,1),    40.80
++              CALL SwanInterpolateOutput ( VOQ(1, VOQR(201)), VOQ(1,1),    40.80
+      &                                     VOQ(1,2), COMPDA(1,JDSXC),     40.80
+-     &                                     MIP, KVERT, OVEXCV(80) )       40.80
++     &                                     MIP, KVERT, OVEXCV(201) )       40.80
+           ENDIF                                                           40.80
+         ELSE
+           DO IP = 1, MIP                                                  31.02
+-            VOQ(IP,VOQR(80))  = OVEXCV(80)                                31.02
++            VOQ(IP,VOQR(201))  = OVEXCV(201)                                31.02
+           ENDDO                                                           31.02
+         ENDIF
+       ENDIF
+--- a/SWAN/src/swanpre1.ftn
++++ b/SWAN/src/swanpre1.ftn
+@@ -1620,7 +1620,7 @@
+           IGRD = 18                                                       40.55
+           PSNAME = 'NPHTGRID'                                             40.55
+           CALL SINPGR (IGRD, IGR2, PSNAME)
+-          VARNPL = .TRUE.                                                   40.55
++          VARNPH = .TRUE.                                                   40.55
+           IF (JNPHT2.LE.1) THEN                                             40.55
+             MCMVAR = MCMVAR + 2                                             40.55
+             JNPHT2 = MCMVAR - 1                                             40.55
+@@ -3028,6 +3028,11 @@
+         IF (.NOT.ALLOCATED(VEGDIL)) ALLOCATE(VEGDIL(ILMAX))
+         IF (.NOT.ALLOCATED(VEGNSL)) ALLOCATE(VEGNSL(ILMAX))
+         IF (.NOT.ALLOCATED(VEGDRL)) ALLOCATE(VEGDRL(ILMAX))
++!       SVEG_COAWST (iveg 3) reads Young's modulus; default: rigid
++        IF (.NOT.ALLOCATED(VEGYML)) THEN
++          ALLOCATE(VEGYML(ILMAX))
++          VEGYML = 1.E9
++        END IF
+         CURRV => FRSTV%NEXTV
+         DO JJ = 1, ILMAX
+            LAYH  (JJ) = CURRV%H

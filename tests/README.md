@@ -30,6 +30,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
 | `fixes/swan-stop-on-input-errors/run.sh OUTDIR` | swan-stop-on-input-errors | rejected SWAN request: carries on before, clean stop after | 15 min |
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
+| `fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR` | swan-vegetation-fixes | source check; Veg_test with VEGETATION 3, submerged and emergent plants | 25 min |
 
 ## Tools
 
@@ -40,6 +41,8 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `tools/patched_tree.sh SOURCE SERIES OUTDIR` | a COAWST source tree with a series applied, no build |
 | `tools/run_inlet.sh IMAGE OUTDIR NAME [TI TJ NWAV HOURS]` | runs COAWST's Inlet_test with a chosen layout (Docker on this machine) |
 | `tools/inlet_inside.sh [TI TJ NWAV HOURS]` | the same run, inside a coawst container (what `run_inlet.sh` calls; usable on a batch system) |
+| `tools/run_project.sh IMAGE OUTDIR NAME PROJECT COUPLING OCEAN SWAN [TI TJ NWAV MINUTES]` | runs any COAWST project in the image (e.g. Projects/Veg_test) |
+| `tools/project_inside.sh ...` | the same, inside a coawst container |
 | `tools/compare_nc.py A.nc B.nc [VAR ...] [--last]` | largest difference per variable, bit-identical or not |
 
 The Python scripts need numpy and netCDF4; the tests use `$PYTHON`
