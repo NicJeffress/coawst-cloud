@@ -24,4 +24,15 @@ Each patch is documented here with a status card:
 | Test | the script that checks it |
 | Upstream | reported or proposed to COAWST? |
 
-(No patches yet: the series is empty and the build is COAWST as shipped.)
+## The patches
+
+Each patch has a document of the same name next to it: what was wrong, why it
+matters, the fix, how it was found, the test and its results, and its limits.
+
+### 1. Fixes
+
+| Patch | What was wrong | Changes results? | Test |
+|---|---|---|---|
+| [roms-sed-morph-tiling](1-fixes/roms-sed-morph-tiling.md) | With sediment morphology, results depended on the MPI tiling (three halo bugs) | yes, multi-tile `SED_MORPH` runs | 1x1 vs 1x2 tiles, Inlet_test |
+
+More fixes (SWAN, vegetation, wet/dry Stokes transport, restarts) follow.

@@ -1,0 +1,88 @@
+diff -ruN a/ROMS/Nonlinear/Sediment/sed_bed.F b/ROMS/Nonlinear/Sediment/sed_bed.F
+--- a/ROMS/Nonlinear/Sediment/sed_bed.F
++++ b/ROMS/Nonlinear/Sediment/sed_bed.F
+@@ -126,7 +126,8 @@
+       USE bc_3d_mod, ONLY : bc_r3d_tile
+       USE exchange_2d_mod, ONLY : exchange_r2d_tile
+ # ifdef DISTRIBUTE
+-      USE mp_exchange_mod, ONLY : mp_exchange3d, mp_exchange4d
++      USE mp_exchange_mod, ONLY : mp_exchange2d, mp_exchange3d,         &
++     &                            mp_exchange4d
+ # endif
+ !
+ !  Imported variable declarations.
+@@ -503,6 +504,13 @@
+      &                            LBi, UBi, LBj, UBj,                   &
+      &                            bed_thick(:,:,3))
+         END IF
++#  ifdef DISTRIBUTE
++      CALL mp_exchange2d (ng, tile, iNLM, 2,                            &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    NghostPoints,                                 &
++     &                    EWperiodic(ng), NSperiodic(ng),               &
++     &                    bed_thick(:,:,nnew), bed_thick(:,:,3))
++#  endif
+ # endif
+ !
+ !-----------------------------------------------------------------------
+diff -ruN a/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F b/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
+--- a/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
++++ b/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
+@@ -373,8 +373,10 @@
+       alphaw=bedload_vandera_alphaw(ng)
+ !
+ # if defined SED_WENO
+-      DO j=Jstrm3,Jendp2i
+-        DO i=Istrm3,Iendp2i
++!  The WENO stencil of the last face (Iend+1, Jend+1) reaches FX_r and
++!  FE_r at Iend+3 and Jend+3, so compute them that far.
++      DO j=Jstrm3,Jendp3
++        DO i=Istrm3,Iendp3
+ # else
+       DO j=Jstrm1,Jendp1
+         DO i=Istrm1,Iendp1
+@@ -410,8 +412,8 @@
+         smgd_3=sqrt((cff-1.0_r8)*g*d50**3.0_r8)
+ !
+ # if defined SED_WENO
+-        DO j=Jstrm3,Jendp2i
+-          DO i=Istrm3,Iendp2i
++        DO j=Jstrm3,Jendp3
++          DO i=Istrm3,Iendp3
+ # else
+         DO j=Jstrm1,Jendp1
+           DO i=Istrm1,Iendp1
+diff -ruN a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -1126,13 +1126,30 @@
+         CALL exchange_r2d_tile (ng, tile,                               &
+      &                          LBi, UBi, LBj, UBj,                     &
+      &                          zeta(:,:,knew))
++#if defined SEDIMENT && defined SED_MORPH
++        CALL exchange_r2d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj,                     &
++     &                          h)
++#endif
+       END IF
+ #ifdef DISTRIBUTE
++# if defined SEDIMENT && defined SED_MORPH
++!
++!  Also exchange the bed-updated "h": the fast time steps use it in the
++!  halo before the next call to "set_depth" exchanges it.
++!
++      CALL mp_exchange2d (ng, tile, iNLM, 2,                            &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    NghostPoints,                                 &
++     &                    EWperiodic(ng), NSperiodic(ng),               &
++     &                    zeta(:,:,knew), h)
++# else
+       CALL mp_exchange2d (ng, tile, iNLM, 1,                            &
+      &                    LBi, UBi, LBj, UBj,                           &
+      &                    NghostPoints,                                 &
+      &                    EWperiodic(ng), NSperiodic(ng),               &
+      &                    zeta(:,:,knew))
++# endif
+ #endif
+ !
+ !=======================================================================

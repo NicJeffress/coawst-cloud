@@ -15,5 +15,26 @@ tests/same_source/compare_series.sh COAWST-<ref>.tar.gz \
 
 prints `IDENTICAL: <n> files` or the files that differ.
 
-The tests behind each patch (fixes, improvements, experimental options) are
-added together with the patches.
+## Tests of the patches
+
+One folder per patch under `fixes/` (later `improvements/`, `experimental/`),
+with a `run.sh` that builds what it needs before and after the patch, runs it,
+compares, and prints PASS or FAIL. The results are written up in the patch's
+document (`build/coawst/patches/<tier>/<patch>.md`).
+
+| Test | Patch | What it shows | Time (4 vCPUs) |
+|---|---|---|---|
+| `fixes/roms-sed-morph-tiling/run.sh OUTDIR` | roms-sed-morph-tiling | Inlet_test 1x1 vs 1x2 tiles: differ before, bit-identical after | 40 min |
+
+## Tools
+
+| Script | Use |
+|---|---|
+| `tools/build_pair.sh PATCH TAG [build.sh args]` | builds TAG-before (series without PATCH and what follows) and TAG-after |
+| `tools/series_upto.sh PATCH [--before]` | the series up to PATCH |
+| `tools/run_inlet.sh IMAGE OUTDIR NAME [TI TJ NWAV HOURS]` | runs COAWST's Inlet_test with a chosen layout (Docker on this machine) |
+| `tools/inlet_inside.sh [TI TJ NWAV HOURS]` | the same run, inside a coawst container (what `run_inlet.sh` calls; usable on a batch system) |
+| `tools/compare_nc.py A.nc B.nc [VAR ...] [--last]` | largest difference per variable, bit-identical or not |
+
+The Python scripts need numpy and netCDF4; the tests use `$PYTHON`
+(default `python3`), e.g. `PYTHON=~/venv/bin/python tests/fixes/.../run.sh ...`.
