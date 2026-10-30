@@ -1,0 +1,133 @@
+diff --git a/ROMS/Nonlinear/BBL/mb_bbl.h b/ROMS/Nonlinear/BBL/mb_bbl.h
+index 7b74e03..a3f2e6e 100644
+--- a/ROMS/Nonlinear/BBL/mb_bbl.h
++++ b/ROMS/Nonlinear/BBL/mb_bbl.h
+@@ -599,7 +599,7 @@
+         DO i=IstrU,Iend
+           angleC=Ur_mb(i,j)/(0.5*(Umag(i-1,j)+Umag(i,j)))
+           bustr(i,j)=0.5_r8*(tauCW(i-1,j)+tauCW(i,j))*angleC
+-# ifdef WET_DRY
++# ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i-1,j,1)+z_w(i,j,1)-                 &
+      &                         z_w(i-1,j,0)-z_w(i,j,0))
+           bustr(i,j)=SIGN(1.0_r8,bustr(i,j))*MIN(ABS(bustr(i,j)),       &
+@@ -611,7 +611,7 @@
+         DO i=Istr,Iend
+           angleC=Vr_mb(i,j)/(0.5_r8*(Umag(i,j-1)+Umag(i,j)))
+           bvstr(i,j)=0.5_r8*(tauCW(i,j-1)+tauCW(i,j))*angleC
+-# ifdef WET_DRY
++# ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i,j-1,1)+z_w(i,j,1)-                 &
+      &                         z_w(i,j-1,0)-z_w(i,j,0))
+           bvstr(i,j)=SIGN(1.0_r8,bvstr(i,j))*MIN(ABS(bvstr(i,j)),       &
+diff --git a/ROMS/Nonlinear/BBL/sg_bbl.h b/ROMS/Nonlinear/BBL/sg_bbl.h
+index b4bc0b0..fc2157b 100644
+--- a/ROMS/Nonlinear/BBL/sg_bbl.h
++++ b/ROMS/Nonlinear/BBL/sg_bbl.h
+@@ -564,7 +564,7 @@
+         DO i=IstrU,Iend
+           anglec=Ur_sg(i,j)/(0.5*(Umag(i-1,j)+Umag(i,j)))
+           bustr(i,j)=0.5_r8*(Tauc(i-1,j)+Tauc(i,j))*anglec
+-#  ifdef WET_DRY
++#  ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i-1,j,1)+z_w(i,j,1)-                 &
+      &                         z_w(i-1,j,0)-z_w(i,j,0))
+           bustr(i,j)=SIGN(1.0_r8,bustr(i,j))*MIN(ABS(bustr(i,j)),       &
+@@ -576,7 +576,7 @@
+         DO i=Istr,Iend
+           anglec=Vr_sg(i,j)/(0.5_r8*(Umag(i,j-1)+Umag(i,j)))
+           bvstr(i,j)=0.5_r8*(Tauc(i,j-1)+Tauc(i,j))*anglec
+-#  ifdef WET_DRY
++#  ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i,j-1,1)+z_w(i,j,1)-                 &
+      &                         z_w(i,j-1,0)-z_w(i,j,0))
+           bvstr(i,j)=SIGN(1.0_r8,bvstr(i,j))*MIN(ABS(bvstr(i,j)),       &
+diff --git a/ROMS/Nonlinear/BBL/ssw_bbl.h b/ROMS/Nonlinear/BBL/ssw_bbl.h
+index b959968..af0715e 100644
+--- a/ROMS/Nonlinear/BBL/ssw_bbl.h
++++ b/ROMS/Nonlinear/BBL/ssw_bbl.h
+@@ -864,7 +864,7 @@
+           anglec=0.5_r8*(Ur_sg(i,j)+Ur_sg(i-1,j))/                      &
+      &           (0.5_r8*(Umag(i-1,j)+Umag(i,j)))
+           bustr(i,j)=0.5_r8*(Tauc(i-1,j)+Tauc(i,j))*anglec
+-#ifdef WET_DRY
++#ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i-1,j,1)+z_w(i,j,1)-                 &
+      &                         z_w(i-1,j,0)-z_w(i,j,0))
+           bustr(i,j)=SIGN(1.0_r8,bustr(i,j))*MIN(ABS(bustr(i,j)),       &
+@@ -877,7 +877,7 @@
+           anglec=0.5_r8*(Vr_sg(i,j)+Vr_sg(i,j-1))/                      &
+      &           (0.5_r8*(Umag(i,j-1)+Umag(i,j)))
+           bvstr(i,j)=0.5_r8*(Tauc(i,j-1)+Tauc(i,j))*anglec
+-#ifdef WET_DRY
++#ifdef LIMIT_BSTRESS
+           cff2=0.75_r8*0.5_r8*(z_w(i,j-1,1)+z_w(i,j,1)-                 &
+      &                         z_w(i,j-1,0)-z_w(i,j,0))
+           bvstr(i,j)=SIGN(1.0_r8,bvstr(i,j))*MIN(ABS(bvstr(i,j)),       &
+diff --git a/ROMS/Nonlinear/set_vbc.F b/ROMS/Nonlinear/set_vbc.F
+index fcb2a80..0e3fff6 100644
+--- a/ROMS/Nonlinear/set_vbc.F
++++ b/ROMS/Nonlinear/set_vbc.F
+@@ -579,7 +579,7 @@
+ !  Set kinematic bottom momentum flux (m2/s2).
+ !-----------------------------------------------------------------------
+ 
+-#   ifdef WET_DRY
++#   ifdef LIMIT_BSTRESS
+ !
+ !  Set limiting factor for bottom stress. The bottom stress is adjusted
+ !  to not change the direction of momentum.  It only should slow down
+@@ -608,7 +608,7 @@
+           cff2=SQRT(u(i,j,1,nrhs)*u(i,j,1,nrhs)+cff1*cff1)
+           bustr(i,j)=0.5_r8*(wrk(i-1,j)+wrk(i,j))*                      &
+      &               u(i,j,1,nrhs)*cff2
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff3=cff*0.5_r8*(Hz(i-1,j,1)+Hz(i,j,1))
+           bustr(i,j)=SIGN(1.0_r8, bustr(i,j))*                          &
+      &               MIN(ABS(bustr(i,j)),                               &
+@@ -625,7 +625,7 @@
+           cff2=SQRT(cff1*cff1+v(i,j,1,nrhs)*v(i,j,1,nrhs))
+           bvstr(i,j)=0.5_r8*(wrk(i,j-1)+wrk(i,j))*                      &
+      &               v(i,j,1,nrhs)*cff2
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff3=cff*0.5_r8*(Hz(i,j-1,1)+Hz(i,j,1))
+           bvstr(i,j)=SIGN(1.0_r8, bvstr(i,j))*                          &
+      &               MIN(ABS(bvstr(i,j)),                               &
+@@ -646,7 +646,7 @@
+           cff2=SQRT(u(i,j,1,nrhs)*u(i,j,1,nrhs)+cff1*cff1)
+           bustr(i,j)=0.5_r8*(rdrag2(i-1,j)+rdrag2(i,j))*                &
+      &               u(i,j,1,nrhs)*cff2
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff3=cff*0.5_r8*(Hz(i-1,j,1)+Hz(i,j,1))
+           bustr(i,j)=SIGN(1.0_r8, bustr(i,j))*                          &
+      &               MIN(ABS(bustr(i,j)),                               &
+@@ -663,7 +663,7 @@
+           cff2=SQRT(cff1*cff1+v(i,j,1,nrhs)*v(i,j,1,nrhs))
+           bvstr(i,j)=0.5_r8*(rdrag2(i,j-1)+rdrag2(i,j))*                &
+      &               v(i,j,1,nrhs)*cff2
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff3=cff*0.5_r8*(Hz(i,j-1,1)+Hz(i,j,1))
+           bvstr(i,j)=SIGN(1.0_r8, bvstr(i,j))*                          &
+      &               MIN(ABS(bvstr(i,j)),                               &
+@@ -679,7 +679,7 @@
+         DO i=IstrU,Iend
+           bustr(i,j)=0.5_r8*(rdrag(i-1,j)+rdrag(i,j))*                  &
+      &               u(i,j,1,nrhs)
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff1=cff*0.5_r8*(Hz(i-1,j,1)+Hz(i,j,1))
+           bustr(i,j)=SIGN(1.0_r8, bustr(i,j))*                          &
+      &               MIN(ABS(bustr(i,j)),                               &
+@@ -691,7 +691,7 @@
+         DO i=Istr,Iend
+           bvstr(i,j)=0.5_r8*(rdrag(i,j-1)+rdrag(i,j))*                  &
+      &               v(i,j,1,nrhs)
+-#    ifdef WET_DRY
++#    ifdef LIMIT_BSTRESS
+           cff1=cff*0.5_r8*(Hz(i,j-1,1)+Hz(i,j,1))
+           bvstr(i,j)=SIGN(1.0_r8, bvstr(i,j))*                          &
+      &               MIN(ABS(bvstr(i,j)),                               &

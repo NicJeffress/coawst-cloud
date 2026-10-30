@@ -35,5 +35,6 @@ matters, the fix, how it was found, the test and its results, and its limits.
 |---|---|---|---|
 | [roms-sed-morph-tiling](1-fixes/roms-sed-morph-tiling.md) | With sediment morphology, results depended on the MPI tiling (three halo bugs) | yes, multi-tile `SED_MORPH` runs | 1x1 vs 1x2 tiles, Inlet_test |
 | [roms-wec-stokes-fixes](1-fixes/roms-wec-stokes-fixes.md) | The u-point spectral Stokes drift loop was not the mirror of the v-point loop (wrong neighbour, bin limit, unused SINH) | yes, `SPECTRUM_STOKES` (up to 3.7 % of u_stokes in Inlet_test); faster | source check + Inlet_test |
+| [roms-limit-bstress](1-fixes/roms-limit-bstress.md) | The bottom-stress limiter tested `WET_DRY` instead of `LIMIT_BSTRESS` | no for existing builds; enables `-WET_DRY +LIMIT_BSTRESS` | preprocessed Fortran, Veg_test |
 
 More fixes (SWAN, vegetation, wet/dry Stokes transport, restarts) follow.
