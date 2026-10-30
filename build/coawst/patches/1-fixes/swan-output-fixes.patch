@@ -1,0 +1,116 @@
+--- a/SWAN/src/swanout1.ftn
++++ b/SWAN/src/swanout1.ftn
+@@ -364,6 +364,7 @@
+ !       assign memory to array CROSS (indicates crossing of obstacles     40.86
+ !                                     in between output and grid points)  40.86
+         ALLOCATE(CROSS(4,MIP))                                            40.86
++        CROSS = .FALSE.
+ !       CROSS = .FALSE.                                                   42.05
+ !
+ !       assign memory to array IONOD (indicates in which subdomain        40.51
+@@ -1178,6 +1179,7 @@
+ !       assign memory to array CROSS (indicates crossing of obstacles     40.86
+ !                                     in between output and grid points)  40.86
+         ALLOCATE(CROSS(4,MIP))                                            40.86
++        CROSS = .FALSE.
+ !
+ !       assign memory to array IONOD (indicates in which subdomain        40.51
+ !                                     output points are located)          40.51
+@@ -1580,6 +1582,7 @@
+ !       assign memory to array CROSS (indicates crossing of obstacles     40.86
+ !                                     in between output and grid points)  40.86
+         ALLOCATE(CROSS(4,MIP))                                            40.86
++        CROSS = .FALSE.
+ !
+ !       assign memory to array IONOD (indicates in which subdomain        40.51
+ !                                     output points are located)          40.51
+--- a/SWAN/src/swanout2.ftn
++++ b/SWAN/src/swanout2.ftn
+@@ -24,9 +24,11 @@
+       USE OCPCOMM2                                                        40.41
+       USE OCPCOMM4                                                        40.41
+       USE SWCOMM1                                                         40.41
+-      USE SWCOMM3, ONLY: NSTATM                                           41.62
++      USE SWCOMM3, ONLY: NSTATM, MXC, MYC
+       USE SWCOMM4, ONLY: KSPHER                                           41.62
+       USE OUTP_DATA                                                       40.13
++      USE SWCOMM2, ONLY: OPTG, XOFFS, YOFFS
++      USE M_GENARR, ONLY: XCGRID, YCGRID
+ !NCF      USE swn_outnc                                                       41.40
+ #ifdef SWAN_MODEL
+       USE M_COUPLING
+@@ -232,10 +234,19 @@
+ !NCF        IF (STPNOW()) RETURN
+ !NCF        IF (.NOT.EXIST) CLOSE(NREF, STATUS='DELETE')                      41.43
+ !NCF        OQI(1) = NREF
+-!NCF        CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+-!NCF     &                               OVLNAM, VOQ(:,VOQR(1)),
+-!NCF     &                               VOQ(:,VOQR(2)),
+-!NCF     &                               OQI, OQR, IVTYP, IRQ)
++!NCF        IF (PSNAME.EQ.'COMPGRID' .AND. OPTG.NE.5 .AND.
++!NCF     &      MXK.EQ.MXC .AND. MYK.EQ.MYC) THEN
++!NCF!         grid coordinates, also at inactive points
++!NCF          CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
++!NCF     &                                 OVLNAM, XCGRID+XOFFS,
++!NCF     &                                 YCGRID+YOFFS,
++!NCF     &                                 OQI, OQR, IVTYP, IRQ)
++!NCF        ELSE
++!NCF          CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
++!NCF     &                                 OVLNAM, VOQ(:,VOQR(1)),
++!NCF     &                                 VOQ(:,VOQR(2)),
++!NCF     &                                 OQI, OQR, IVTYP, IRQ)
++!NCF        END IF
+       ENDIF
+       IDLA = OQI(4)                                                       40.31 30.00
+       NVAR = OQI(3)                                                       40.31 30.00
+--- a/SWAN/src/swanparll.ftn
++++ b/SWAN/src/swanparll.ftn
+@@ -4349,7 +4349,7 @@
+ !NCF!                 --- use "block" intermediate file facility to pass data between cores
+ !NCF                  CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%OQR, CORQ%IVTYP,
+ !NCF     &                            CORQ%FAC, SNAMPF, MIP, 1, IRQ,
+-!NCF     &                            BLKND, XC, YC )
++!NCF     &                            BLKND, XC, YC, XP, YP )
+ !NCF                  IF (STPNOW()) RETURN
+ !NCF                 ELSE
+                   CALL SWCOLTAB ( RTYPE, CORQ%OQI, CORQ%IVTYP, MIP, IRQ,
+@@ -4377,7 +4377,7 @@
+                IF ( RTYPE(1:3).EQ.'BLK' ) THEN
+                   CALL SWCOLBLK ( RTYPE, CORQ%OQI, CORQ%OQR, CORQ%IVTYP,  41.40
+      &                            CORQ%FAC, SNAMPF, MXK, MYK, IRQ,        40.51 40.41
+-     &                            BLKND, XC, YC )                         40.51 40.41
++     &                            BLKND, XC, YC, XP, YP )
+                   IF (STPNOW()) RETURN
+                END IF
+ 
+@@ -5153,7 +5153,7 @@
+ !
+       SUBROUTINE SWCOLBLK ( RTYPE , OQI, OQR, IVTYP, FAC  ,               41.40
+      &                      PSNAME, MXK, MYK, IRQ  , BLKND,               40.51
+-     &                      XC    , YC )                                  40.51
++     &                      XC    , YC    , XP    , YP )
+ !
+ !****************************************************************
+ !
+@@ -5242,6 +5242,7 @@
+ !
+       INTEGER   MXK, MYK, IRQ, OQI(4), IVTYP(OQI(3))
+       REAL      BLKND(MXCGL,MYCGL), XC(MXK*MYK), YC(MXK*MYK)              40.51
++      REAL      XP(MXK*MYK), YP(MXK*MYK)
+       REAL*8    OQR(2)                                                    41.40
+       REAL      FAC(OQI(3))                                               41.40
+       CHARACTER RTYPE*4, PSNAME*8
+@@ -5385,7 +5386,12 @@
+ !NCF            IF (NCF .AND. .NOT.OPENED) THEN                               41.40
+ !NCF                IUT    = HIOPEN + IRQ
+ !NCF                OQI(1) = IUT
+-!NCF                IF (OPTG.NE.5) THEN
++!NCF                IF (RTYPE.EQ.'TABC') THEN
++!NCF!                  TABLE: locations of the output points
++!NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
++!NCF     &                                         OVLNAM, XP, YP,
++!NCF     &                                         OQI, OQR, IVTYP, IRQ)
++!NCF                ELSE IF (OPTG.NE.5) THEN
+ !NCF                  CALL swn_outnc_openblockfile(FILENM, MYK, MXK,
+ !NCF     &                                         OVLNAM, XGRDGL, YGRDGL,
+ !NCF     &                                         OQI, OQR, IVTYP, IRQ)

@@ -38,6 +38,7 @@ matters, the fix, how it was found, the test and its results, and its limits.
 | [roms-limit-bstress](1-fixes/roms-limit-bstress.md) | The bottom-stress limiter tested `WET_DRY` instead of `LIMIT_BSTRESS` | no for existing builds; enables `-WET_DRY +LIMIT_BSTRESS` | preprocessed Fortran, Veg_test |
 | [swan-nc-crash](1-fixes/swan-nc-crash.md) | SWAN's NetCDF output read 140 bytes from an 11-byte file name, and indexed its name table past the end | no (memory safety; crash on some machines) | SWAN with -fcheck=bounds, Inlet_test |
 | [swan-stop-on-input-errors](1-fixes/swan-stop-on-input-errors.md) | After SWAN rejected its input, the coupled run carried on with SWAN half set up | no (run control) | Inlet_test with a rejected request |
+| [swan-output-fixes](1-fixes/swan-output-fixes.md) | NetCDF TABLE points at the grid origin (several SWAN processes), -1e10 grid coordinates (one process), output between grid points randomly missing | output only | Inlet_test with extra output, 1 and 2 SWAN |
 
 The SWAN patches are written by [`generators/make_swan_patches.py`](generators/make_swan_patches.py)
 from the unpatched SWAN source; the item numbers in their documents are its

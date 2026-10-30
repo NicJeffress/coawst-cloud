@@ -15,3 +15,4 @@
 1-fixes/roms-limit-bstress.patch
 1-fixes/swan-nc-crash.patch
 1-fixes/swan-stop-on-input-errors.patch
+1-fixes/swan-output-fixes.patch
