@@ -1,0 +1,22 @@
+--- a/ROMS/Nonlinear/WEC/wec_stokes.F
++++ b/ROMS/Nonlinear/WEC/wec_stokes.F
+@@ -417,9 +417,8 @@
+ ! may still be significant when central point Stokes is not.
+ !
+             DO WHILE ((is.lt.MSCs).and.                                  &
+-     &                ((cff2.lt.kDmax).or.(k.eq.N(ng))))
++     &                ((cff2.lt.kD2deep).or.(k.eq.N(ng))))
+               cff4 = 0.5_r8*cff3*(cff6-cff7)
+-              cff5 = (2.0_r8*cff4*SINH(0.5_r8*cff3)**2.0_r8)
+ !              
+               IF (cff3.lt.kD2deep) THEN
+ !
+@@ -455,7 +454,7 @@
+ ! as top spectral bin. Re-using cff3, cff2. Should be taking sqrt(pi)
+ ! elsewhere outside loop...
+ !
+-              cff3=0.5_r8*fac3*(spec_wn(i,j-1,is)+spec_wn(i,j,is))
++              cff3=0.5_r8*fac3*(spec_wn(i-1,j,is)+spec_wn(i,j,is))
+               cff2=-0.5_r8*cff3*(cff6+cff7)
+               cff4=0.5_r8*cff3*(cff6-cff7)+eps
+               facto1=MAX(eps, cff2 + cff4)

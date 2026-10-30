@@ -25,6 +25,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | Test | Patch | What it shows | Time (4 vCPUs) |
 |---|---|---|---|
 | `fixes/roms-sed-morph-tiling/run.sh OUTDIR` | roms-sed-morph-tiling | Inlet_test 1x1 vs 1x2 tiles: differ before, bit-identical after | 40 min |
+| `fixes/roms-wec-stokes-fixes/run.sh SOURCE OUTDIR` | roms-wec-stokes-fixes | source check of the u and v loops; Inlet_test before vs after | 15 min |
 
 ## Tools
 
@@ -32,6 +33,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 |---|---|
 | `tools/build_pair.sh PATCH TAG [build.sh args]` | builds TAG-before (series without PATCH and what follows) and TAG-after |
 | `tools/series_upto.sh PATCH [--before]` | the series up to PATCH |
+| `tools/patched_tree.sh SOURCE SERIES OUTDIR` | a COAWST source tree with a series applied, no build |
 | `tools/run_inlet.sh IMAGE OUTDIR NAME [TI TJ NWAV HOURS]` | runs COAWST's Inlet_test with a chosen layout (Docker on this machine) |
 | `tools/inlet_inside.sh [TI TJ NWAV HOURS]` | the same run, inside a coawst container (what `run_inlet.sh` calls; usable on a batch system) |
 | `tools/compare_nc.py A.nc B.nc [VAR ...] [--last]` | largest difference per variable, bit-identical or not |
