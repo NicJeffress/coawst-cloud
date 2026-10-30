@@ -64,6 +64,18 @@ ARG SERIES=series
 RUN sh /usr/local/bin/apply_series.sh \
         $([ "${SERIES}" = none ] && echo none || echo /tmp/patches/${SERIES}) /tmp/patches
 
+# Extra compiler flags, for checks (tests use e.g. SWAN_FFLAGS_EXTRA="-fcheck=bounds",
+# which stops at the first out-of-bounds access). Empty by default.
+ARG ROMS_FFLAGS_EXTRA=""
+ARG SWAN_FFLAGS_EXTRA=""
+RUN if [ -n "${ROMS_FFLAGS_EXTRA}" ]; then \
+        echo "FFLAGS += ${ROMS_FFLAGS_EXTRA}" >> Compilers/Linux-gfortran.mk; \
+    fi \
+    && if [ -n "${SWAN_FFLAGS_EXTRA}" ]; then \
+        sed -i "s|\"-O -w -fno-second-underscore|\"-O ${SWAN_FFLAGS_EXTRA} -w -fno-second-underscore|" SWAN/src/CMakeLists.txt \
+        && grep -q -- "${SWAN_FFLAGS_EXTRA} -w" SWAN/src/CMakeLists.txt; \
+    fi
+
 ############ case-specific steps (after the shared, cached ones) ############
 ARG COAWST_APPLICATION=INLET_TEST
 ARG CASE_DIR=Projects/Inlet_test/Coupled

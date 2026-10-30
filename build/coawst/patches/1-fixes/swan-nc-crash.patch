@@ -1,0 +1,22 @@
+--- a/SWAN/src/ocpmix.ftn
++++ b/SWAN/src/ocpmix.ftn
+@@ -1687,7 +1687,7 @@
+ !                       output  error indicator
+ !
+       INTEGER   IUNIT, IOSTAT
+-      CHARACTER DDNAME*(LENFNM), SF*2                                     40.03
++      CHARACTER DDNAME*(*), SF*2                                          40.03
+ !
+ !  5. PARAMETER VAR. (CONSTANTS)
+ !
+--- a/SWAN/src/swn_outnc.ftn90
++++ b/SWAN/src/swn_outnc.ftn90
+@@ -74,7 +74,7 @@
+ !      oqr(2)       :   delta
+ !
+ !   Module variables
+-    character*40                :: STNAMES(171,2) = ''
++    character*40                :: STNAMES(202,2) = ''
+     logical                     :: stnames_initialized = .false., &
+                                    skip_range_error = .true.
+     type(recordaxe_type), save  :: recordaxe(MAX_OUTP_REQ)
