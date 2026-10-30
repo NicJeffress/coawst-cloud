@@ -1,0 +1,26 @@
+--- a/SWAN/src/waves_control.ftn
++++ b/SWAN/src/waves_control.ftn
+@@ -50,7 +50,7 @@
+       USE TIMECOMM
+       USE M_MPI
+       USE M_COUPLING
+-      USE OCPCOMM4, ONLY: SCREEN
++      USE OCPCOMM4, ONLY: SCREEN, PRINTF, LEVERR, MAXERR
+ #ifdef COAWST_COUPLING
+       USE WAVES_COUPLER_MOD, ONLY: INITIALIZE_WAV_ROUTERS
+ #endif
+@@ -193,6 +193,14 @@
+ #endif
+ !       swan_initialize does not use ngc or ngp
+         CALL SWAN_INITIALIZE (NUM_SGRIDS, MyCOMM, Wname(ng))
++!       Do not run with a SWAN setup that has input errors.
++        IF (LEVERR.GT.MAXERR .AND. MAXERR.NE.-1) THEN
++          WRITE (SCREEN,'(A,I3,A)') ' SWAN input error level',
++     &      LEVERR, ' > MAXERR: stopping, see SWAN PRINT file'
++          LEVERR = MAX(LEVERR, 4)
++          FLUSH (PRINTF)
++          CALL SWEXITMPI
++        END IF
+ #ifdef NESTING
+ !
+ ! Call routine to initialize the child refined grid bc arrays.

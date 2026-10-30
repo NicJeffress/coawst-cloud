@@ -37,6 +37,7 @@ matters, the fix, how it was found, the test and its results, and its limits.
 | [roms-wec-stokes-fixes](1-fixes/roms-wec-stokes-fixes.md) | The u-point spectral Stokes drift loop was not the mirror of the v-point loop (wrong neighbour, bin limit, unused SINH) | yes, `SPECTRUM_STOKES` (up to 3.7 % of u_stokes in Inlet_test); faster | source check + Inlet_test |
 | [roms-limit-bstress](1-fixes/roms-limit-bstress.md) | The bottom-stress limiter tested `WET_DRY` instead of `LIMIT_BSTRESS` | no for existing builds; enables `-WET_DRY +LIMIT_BSTRESS` | preprocessed Fortran, Veg_test |
 | [swan-nc-crash](1-fixes/swan-nc-crash.md) | SWAN's NetCDF output read 140 bytes from an 11-byte file name, and indexed its name table past the end | no (memory safety; crash on some machines) | SWAN with -fcheck=bounds, Inlet_test |
+| [swan-stop-on-input-errors](1-fixes/swan-stop-on-input-errors.md) | After SWAN rejected its input, the coupled run carried on with SWAN half set up | no (run control) | Inlet_test with a rejected request |
 
 The SWAN patches are written by [`generators/make_swan_patches.py`](generators/make_swan_patches.py)
 from the unpatched SWAN source; the item numbers in their documents are its
