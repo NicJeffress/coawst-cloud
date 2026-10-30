@@ -90,7 +90,7 @@ item 14  TABLE text between grid points, 2 SWAN        0 of 63 values = -9      
 
 Item 6 before: the 9 points got the x coordinates of the first grid cells
 (0, 200, 400 m, ...). Item 14 before: with every flag reading "true", most
-values between grid points are missing (the ones left are points where SWAN
-finds no obstacle-crossing test necessary); without `MALLOC_PERTURB_` the
-number missing varies from run to run (4 of 9 points in the original finding).
+values between grid points are missing (why a few are not was not traced);
+without `MALLOC_PERTURB_` the number missing varies from run to run (4 of 9
+points in the original finding).
 Wall time 57-69 s per run, the same before and after.
