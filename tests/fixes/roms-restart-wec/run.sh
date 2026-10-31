@@ -15,11 +15,11 @@
 # Runs (tests/tools/restart_inside.sh, ROMS 1x2 + 2 SWAN here; TI TJ NWAV):
 #   straight 0 -> TOTAL (default 60 min); part1 0 -> RST (30), writing restart
 #   files; part2 RST -> TOTAL from them. History and SWAN output every 10 min.
-# Baseline: the river image without the river (noriver-after).
+# A third variant, noriver, runs the river images with the river off (base
+# A15: periodic in x, GLS), which tests turbulence_halo on its own.
 # Check (check_runs.py): part2 vs straight at TOTAL. Before the patch the
-# restarted run drifts away; after it, veg must agree to round-off and river
-# no worse than its no-river baseline.
-# STAGES (default "build run check"): with STAGES=build the four runs can be
+# restarted run drifts away; after it, every variant must agree to round-off.
+# STAGES (default "build run check"): with STAGES=build the six runs can be
 # made elsewhere (OUTDIR/<variant>-<side>/ as restart_inside.sh writes them),
 # then STAGES=check. Needs Docker and Python with numpy and netCDF4 (PYTHON).
 set -euo pipefail
@@ -67,11 +67,12 @@ if has run; then
                 > "$d/runner.log" 2>&1 || true
             echo "   $v-$side: $(grep -E '^(straight|part1|part2):' "$d/runner.log" | paste -sd' ')"
         done
+        # noriver: the river case's image with the river off
+        d=$OUT/noriver-$side; rm -rf "$d"; mkdir -p "$d"; cp "$here/../../tools/"{restart_inside,case_inside}.sh "$d/"
+        docker run --rm --user "$(id -u):$(id -g)" -v "$d:/work" -w /work coawst-test:rst-river-$side \
+            bash /work/restart_inside.sh Reef_Ideal_A15 "$TOTAL" "$RST" $TI $TJ $NWAV > "$d/runner.log" 2>&1 || true
+        echo "   noriver-$side: $(grep -E '^(straight|part1|part2):' "$d/runner.log" | paste -sd' ')"
     done
-    # baseline: the river case's image without the river (base A15 restarts to ~1e-7 m/s)
-    d=$OUT/noriver-after; rm -rf "$d"; mkdir -p "$d"; cp "$here/../../tools/"{restart_inside,case_inside}.sh "$d/"
-    docker run --rm --user "$(id -u):$(id -g)" -v "$d:/work" -w /work coawst-test:rst-river-after \
-        bash /work/restart_inside.sh Reef_Ideal_A15 "$TOTAL" "$RST" $TI $TJ $NWAV > "$d/runner.log" 2>&1 || true
 fi
 if has check; then
     echo "== checks"

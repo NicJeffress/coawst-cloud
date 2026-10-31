@@ -10,7 +10,7 @@ Run the same case twice: once straight through for 60 min, and once stopped
 at 30 min and restarted from the files it wrote then. If the restart is
 exact, the two agree at 60 min to round-off (differences of order 1e-10 m/s,
 from the different order of floating-point operations). Do it before and after
-the patch, on two variants that exercise different parts of the fix.
+the patch, on three variants that exercise different parts of the fix.
 
 ## What it does, step by step
 
@@ -23,6 +23,11 @@ the patch, on two variants that exercise different parts of the fix.
      writes three face sources on the land wall at the south of the lagoon
      (5 m3/s each, in the top layers); the test switches them on with
      `LuvSrc == T`.
+   - `noriver`: the `river` images with the river left off: the base A15
+     case, periodic in x with GLS turbulence and no canopy. It checks
+     `turbulence_halo` on its own: without it the restarted run was off by
+     about 2e-7 m/s, from the ghost columns of `tke` and `gls` at the periodic
+     seam (the canopy variant damps the same error to 1e-10).
 2. **Runs** each image with `tests/tools/restart_inside.sh` (three runs in a
    row in one container):
    - `straight`: 0 -> 60 min;
@@ -32,12 +37,11 @@ the patch, on two variants that exercise different parts of the fix.
    History and SWAN output every 10 min.
 3. **Checks** (`check_runs.py`): the largest difference between part2 and
    straight at 60 min in `ubar`, `vbar`, `u`, `v`, `zeta`, `AKv`, `tke` and
-   SWAN's Hs. It also runs the river image with the river switched off
-   (`noriver-after`): the base A15 case restarts to about 1e-7 m/s, a small
-   residual unrelated to rivers (see the patch document), which is the
-   baseline for the river variant. PASS needs a difference above 1e-6 m/s
-   before the patch, and after it below 1e-8 m/s (veg) or no more than 3 times
-   the no-river baseline (river).
+   SWAN's Hs. PASS needs, for every variant, a difference above 1e-6 m/s
+   before the patch and below 1e-8 m/s after it. The history is written in
+   single precision, so "round-off" here means flips of the last bit of a
+   stored value (1.9e-9 m/s for a current of 0.03 m/s, 2.4e-7 m for a wave
+   height of 1.2 m): the double-precision states agree to their last bits.
 
 ## Running it
 
@@ -45,17 +49,17 @@ the patch, on two variants that exercise different parts of the fix.
 PYTHON=~/venv/bin/python tests/fixes/roms-restart-wec/run.sh OUTDIR [TOTAL RST]
 ```
 
-About 20 min to build and 2.5 h to run on 4 vCPUs (ROMS 1x2 + 2 SWAN; `TI`,
-`TJ`, `NWAV` change it). With `STAGES=build` the four runs can be made
+About 20 min to build and 3.5-4 h to run on 4 vCPUs (ROMS 1x2 + 2 SWAN; `TI`,
+`TJ`, `NWAV` change it). With `STAGES=build` the six runs can be made
 elsewhere (one machine each; OUTDIR/<variant>-<side>/ as
 `restart_inside.sh` writes it), then `STAGES=check`.
 
 ## Reading the output
 
 ```
-veg   before at 60/60 min: currents 2.7e-05 m/s; ubar 1.0e-05, ...; SWAN Hs 6.9e-06 m
-veg   after  at 60/60 min: currents 1.2e-10 m/s; ...; SWAN Hs 0.0e+00 m
-veg   restarted vs straight: before 2.7e-05, after 1.2e-10 m/s  ok
+veg     before at 60/60 min: currents 2.7e-05 m/s; ubar 1.0e-05, ...; SWAN Hs 6.9e-06 m
+veg     after  at 60/60 min: currents 1.2e-10 m/s; ...; SWAN Hs 0.0e+00 m
+veg     restarted vs straight: before 2.7e-05, after 1.2e-10 m/s  ok
 ```
 
 "currents" is the largest of the velocity differences; "SWAN Hs 0.0e+00"
@@ -63,6 +67,13 @@ means SWAN's output is bit-identical.
 
 ## Last result
 
-2026-10-31, runs on Cloud Batch: PASS. veg: 2.7e-5 -> 1.2e-10 m/s (SWAN
-bit-identical); river: 2.1e-2 -> 2.4e-7 m/s, baseline without the river
-1.8e-7 m/s. Details in the patch document.
+2026-10-31, runs on Cloud Batch: PASS (after adding `turbulence_halo`).
+
+| Variant | before | after |
+|---|---|---|
+| veg | 2.7e-5 m/s | 1.2e-10 m/s, SWAN bit-identical |
+| river | 2.1e-2 m/s | 1.9e-9 m/s (one float32 step at one point), SWAN Hs last bit |
+| noriver | 2.1e-2 m/s | 5.8e-11 m/s, SWAN bit-identical |
+
+Details, and how the last piece (`turbulence_halo`) was traced, in the patch
+document.

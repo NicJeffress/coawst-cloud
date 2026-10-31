@@ -39,6 +39,64 @@ diff -ruN a/ROMS/Modules/mod_ncparam.F b/ROMS/Modules/mod_ncparam.F
            CASE ('idWqsp')
              idWqsp=varid
            CASE ('idWbeh')
+diff -ruN a/ROMS/Nonlinear/ini_fields.F b/ROMS/Nonlinear/ini_fields.F
+--- a/ROMS/Nonlinear/ini_fields.F
++++ b/ROMS/Nonlinear/ini_fields.F
+@@ -20,6 +20,9 @@
+ # ifdef SOLVE3D
+       USE mod_coupling
+ # endif
++# if defined PERFECT_RESTART && defined SOLVE3D && (defined GLS_MIXING || defined MY25_MIXING)
++      USE mod_mixing
++# endif
+       USE mod_ncparam
+       USE mod_ocean
+       USE mod_scalars
+@@ -77,6 +80,9 @@
+ !
+       character (len=*), parameter :: MyFile =                          &
+      &  __FILE__
++# if defined PERFECT_RESTART && defined SOLVE3D && (defined GLS_MIXING || defined MY25_MIXING)
++      integer :: rec
++# endif
+ !
+ # include "tile.h"
+ !
+@@ -126,6 +132,34 @@
+      &                      OCEAN(ng) % ubar,                           &
+      &                      OCEAN(ng) % vbar,                           &
+      &                      OCEAN(ng) % zeta)
++# if defined PERFECT_RESTART && defined SOLVE3D && (defined GLS_MIXING || defined MY25_MIXING)
++!
++!  roms-restart-wec (turbulence_halo): a perfect restart reads tke and
++!  gls only at interior and boundary points. Fill their periodic and
++!  tile ghost points as well; the first step's horizontal advection of
++!  tke and gls reads them.
++!
++      IF (PerfectRST(ng)) THEN
++        IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
++          DO rec=1,3
++            CALL exchange_w3d_tile (ng, tile,                           &
++     &                              LBi, UBi, LBj, UBj, 0, N(ng),       &
++     &                              MIXING(ng) % tke(:,:,:,rec))
++            CALL exchange_w3d_tile (ng, tile,                           &
++     &                              LBi, UBi, LBj, UBj, 0, N(ng),       &
++     &                              MIXING(ng) % gls(:,:,:,rec))
++          END DO
++        END IF
++#  ifdef DISTRIBUTE
++        CALL mp_exchange4d (ng, tile, model, 2,                         &
++     &                      LBi, UBi, LBj, UBj, 0, N(ng), 1, 3,         &
++     &                      NghostPoints,                               &
++     &                      EWperiodic(ng), NSperiodic(ng),             &
++     &                      MIXING(ng) % tke,                           &
++     &                      MIXING(ng) % gls)
++#  endif
++      END IF
++# endif
+ # ifdef PROFILE
+       CALL wclock_off (ng, model, 2, __LINE__, MyFile)
+ # endif
 diff -ruN a/ROMS/Nonlinear/initial.F b/ROMS/Nonlinear/initial.F
 --- a/ROMS/Nonlinear/initial.F
 +++ b/ROMS/Nonlinear/initial.F

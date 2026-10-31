@@ -4,9 +4,9 @@
 |---|---|
 | **Type** | fix |
 | **Changes results?** | restarts only: a run restarted from a `PERFECT_RESTART` file now continues as the uninterrupted run (to round-off); runs without restarts are unchanged |
-| **Default** | on (all changes inside `PERFECT_RESTART` with `WEC`, or in the restart file's writing) |
-| **Files** | `ROMS/Utility/wrt_rst.F`, `def_rst.F`, `get_state_nlm_nf90.h`; `ROMS/Nonlinear/main3d.F`, `initial.F`, `set_massflux.F`; `ROMS/Modules/mod_ncparam.F`; `ROMS/External/varinfo.yaml` |
-| **Evidence** | idealized reef with waves and a canopy, and with a river: restarted after 30 of 60 min, stock drifts away from the uninterrupted run, patched agrees to round-off (results below) |
+| **Default** | on (all changes inside `PERFECT_RESTART`, with `WEC` or with GLS/Mellor-Yamada turbulence, or in the restart file's writing) |
+| **Files** | `ROMS/Utility/wrt_rst.F`, `def_rst.F`, `get_state_nlm_nf90.h`; `ROMS/Nonlinear/main3d.F`, `initial.F`, `ini_fields.F`, `set_massflux.F`; `ROMS/Modules/mod_ncparam.F`; `ROMS/External/varinfo.yaml` |
+| **Evidence** | idealized reef with waves (with a canopy, with a river, and bare): restarted after 30 of 60 min, stock drifts up to 2 cm/s away from the uninterrupted run, patched agrees to round-off (results below) |
 | **Test** | [`tests/fixes/roms-restart-wec/run.sh`](../../../../tests/fixes/roms-restart-wec/run.sh), see its [README](../../../../tests/fixes/roms-restart-wec/README.md) |
 | **Upstream** | not reported yet |
 
@@ -18,7 +18,8 @@ that to be trustworthy, a restarted run must continue exactly as if it had
 never stopped. ROMS's `PERFECT_RESTART` option is meant to guarantee this,
 but with COAWST's wave coupling it did not: some of the state that the first
 step after a restart needs was not in the restart file, or was written with
-the land mask applied where it should not have been. The restarted run then
+the land mask applied where it should not have been, or was read without
+filling the extra ghost points around the domain. The restarted run then
 started from a slightly different state and drifted away (2.4 cm/s within
 30 min in an idealized reef case). This patch writes and reads the missing
 state. Together with SWAN's own restart fix (`swan-exact-restart`), a
@@ -30,6 +31,7 @@ restarted coupled run now follows the uninterrupted one to round-off.
 | `volume_fluxes` | the volume fluxes `Huon`, `Hvom` | they are computed before the coupling exchange, with the Stokes drift of the previous exchange, which the restart file no longer holds |
 | `stokes_read_back` | `u_stokes`, `v_stokes` were written but never read | (completeness; they are recomputed before use) |
 | `unmasked_fields` | river fluxes, GLS turbulence fields and bed properties were written with land points replaced by fill values | river face fluxes sit on land/water faces, and GLS uses values next to land |
+| `turbulence_halo` | the ghost points of the turbulence fields `tke`, `gls` (periodic and between tiles) were not filled after reading | the first step's horizontal advection of `tke` and `gls` reads them |
 
 ## Background: what a perfect restart needs
 
@@ -102,9 +104,95 @@ points are written as they are:
 +     &                   SetFillVal = .FALSE.)
 ```
 
+## turbulence_halo: the turbulence fields' ghost points were left empty
+
+ROMS keeps a few extra columns and rows around each tile, the ghost (halo)
+points. In a periodic domain the outer ones hold copies of the opposite side
+of the domain (for A15, periodic in x with 201 interior columns, i = 1 ... 201:
+i = -2, -1, 0 are copies of columns 199, 200, 201, and i = 202, 203, 204 of
+columns 1, 2, 3). Between MPI
+tiles they hold the neighbouring tile's values. Every routine that updates a
+field ends with an exchange that refills them.
+
+A restart file holds each field only at the interior and the first ghost
+column on each side (i = 0 ... 202 here). After reading, `ini_fields.F` refills the ghost
+points of everything it restores: velocities, tracers, sea level, the
+time-stepping terms `ru`, `rv`, `rubar`, ... But not of the GLS (or Mellor-
+Yamada) turbulence fields `tke` and `gls`, which `PERFECT_RESTART` reads at
+both time levels. Their outer ghost columns kept the values the model starts
+with, the minimum values `GLS_Kmin` = 7.6e-6 m2/s2 and `GLS_Pmin` = 1e-12,
+instead of the 1.6e-4 m2/s2 the uninterrupted run had there.
+
+The first step after the restart advects `tke` and `gls` horizontally
+(`gls_prestep.F`, `gls_corstep.F`). Its stencil reaches two columns out, so
+columns 0, 1 and 200 ... 202 read the wrong neighbours. The effect is small
+(the ghost columns are refilled at the end of that step, and the advective
+flux across the seam is small), but it is not round-off: the first step put a
+relative error of about 2e-7 into `tke` and `gls` next to the seam, which the
+fast crest flow then spread. That was the small residual of 1.8e-7 m/s
+in the base A15 case.
+
+How it was found: a debug build printed the inputs of `gls_prestep` (both
+time levels of `tke` and `gls`, `W`, the Stokes vertical velocity, `Huon`,
+`Hvom`, `Hz`) on one row at the seam columns, at the first step after the
+restart and at the same time in the uninterrupted run. Everything was
+identical except the four outer ghost columns of `tke` and `gls`:
+
+```
+column  quantity         uninterrupted   restarted
+i = -2  tke (bottom)     1.6077e-04      7.6000e-06   (GLS_Kmin)
+i = -2  gls (bottom)     8.1687e-05      1.0000e-12   (GLS_Pmin)
+i = 203 tke (bottom)     1.6020e-04      7.6000e-06
+i = 0 ... 202            identical       identical
+```
+
+One step later, columns -1 ... 1 and 200 ... 202 differed at a relative 2e-7.
+
+The patch fills those ghost points at the end of `ini_fields` (the routine
+every start goes through before the first step), in the same way
+`gls_corstep.F` does after each step:
+
+```fortran
+# if defined PERFECT_RESTART && defined SOLVE3D && (defined GLS_MIXING || defined MY25_MIXING)
+!
+!  roms-restart-wec (turbulence_halo): a perfect restart reads tke and
+!  gls only at interior and boundary points. Fill their periodic and
+!  tile ghost points as well; the first step's horizontal advection of
+!  tke and gls reads them.
+!
+      IF (PerfectRST(ng)) THEN
+        IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
+          DO rec=1,3
+            CALL exchange_w3d_tile (ng, tile,                           &
+     &                              LBi, UBi, LBj, UBj, 0, N(ng),       &
+     &                              MIXING(ng) % tke(:,:,:,rec))
+            CALL exchange_w3d_tile (ng, tile,                           &
+     &                              LBi, UBi, LBj, UBj, 0, N(ng),       &
+     &                              MIXING(ng) % gls(:,:,:,rec))
+          END DO
+        END IF
+#  ifdef DISTRIBUTE
+        CALL mp_exchange4d (ng, tile, model, 2,                         &
+     &                      LBi, UBi, LBj, UBj, 0, N(ng), 1, 3,         &
+     &                      NghostPoints,                               &
+     &                      EWperiodic(ng), NSperiodic(ng),             &
+     &                      MIXING(ng) % tke,                           &
+     &                      MIXING(ng) % gls)
+#  endif
+      END IF
+# endif
+```
+
+This one has nothing to do with waves: any periodic run with GLS or
+Mellor-Yamada turbulence restarted with `PERFECT_RESTART` had it. Runs that
+are not periodic and use one tile were not affected; with several MPI tiles,
+the tile halos were probably already filled by the parallel read, so the
+`mp_exchange4d` call is a safeguard.
+
 ## What is unchanged
 
-All changes are inside `PERFECT_RESTART` with `WEC` (or `WEC_VF`), or only
+All changes are inside `PERFECT_RESTART` (with `WEC` or `WEC_VF`, except
+`turbulence_halo`, which needs GLS or Mellor-Yamada turbulence), or only
 change what values land points get in the restart file; other builds compile
 as before, and runs without a restart are unchanged. A restart file from
 before the patch lacks the new variables: reading one leaves them zero (the old
@@ -131,33 +219,35 @@ All builds include the fixes (so SWAN's restart is exact:
 
 Run 2026-10-31; images built on the control VM, each variant's three runs on
 one Cloud Batch c2d-standard-8 Spot VM (ROMS 1x6 + 2 SWAN; straight about
-250-280 s, each part about 125-140 s). Restart at 30 min, compared at 60 min
+240-280 s, each part about 120-140 s). Restart at 30 min, compared at 60 min
 (largest difference, restarted minus straight). PASS.
 
 | Variant | Before the patch | After the patch |
 |---|---|---|
-| `veg` (waves, canopy, GLS) | currents 2.7e-5 m/s, AKv 2.3e-5, SWAN Hs 6.9e-6 m | currents **1.2e-10 m/s** (round-off), SWAN Hs **bit-identical** |
-| `river` (waves, GLS, 3 face sources) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.7e-3, SWAN Hs 9.5e-4 m | currents 2.4e-7 m/s, SWAN Hs 2.4e-7 m |
-| no-river baseline (the river image, river off) | | currents 1.8e-7 m/s, SWAN Hs 1.2e-7 m |
+| `veg` (waves, canopy, GLS) | currents 2.7e-5 m/s, AKv 2.3e-5, SWAN Hs 6.9e-6 m | currents **1.2e-10 m/s**, SWAN Hs **bit-identical** |
+| `river` (waves, GLS, 3 face sources) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.7e-3, SWAN Hs 9.5e-4 m | currents **1.9e-9 m/s**, SWAN Hs 2.4e-7 m (last bit) |
+| `noriver` (base A15: waves, GLS) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.6e-3, SWAN Hs 7.9e-4 m | currents **5.8e-11 m/s**, SWAN Hs **bit-identical** |
 
-**With a river the restart was off by 2 cm/s** after 30 min (the river's
-volume flux was missing from the first step after the restart, and the
-turbulence next to the river face started from fill values). With the patch
-the river run restarts as well as the same case without the river.
+**Without the patch the base A15 case restarts 2 cm/s off**, river or not
+(2.1e-2 m/s in both). Its fast flow over the bare reef crest amplifies the
+missing wave pressure term and volume fluxes far more than the canopy
+variant, where the plants damp the crest flow (2.7e-5 m/s). The river's own
+contribution is shown better by the 2026-10-29 test below, where it was the
+largest error.
 
-**A small residual remains in the base A15 case**, river or not: 1.8e-7 m/s
-(no river) and 2.4e-7 m/s (river) at 60 min, against 1.2e-10 m/s for the
-canopy variant. The restored state itself is exact (part2's first record, at
-30 min, is bit-identical to the straight run's); the difference appears
-during the next steps, on the reef crest (rows 31-44) and at the periodic seam
-(i = 1), not at the river, and jumps around from record to record (3e-8 m/s at
-40 min, 2e-9 at 50, 2e-7 at 60). That pattern points to something at the level
-of round-off that the fast crest flow amplifies (the canopy variant's damped
-crest flow keeps it at 1e-10), rather than a missing piece of state. Not
-traced further; it is five orders of magnitude below the 2 cm/s the patch
-removes. The test therefore checks the river variant against this no-river
-baseline (no more than 3 times it), and the canopy variant against round-off
-(below 1e-8 m/s).
+**With the patch all three restart to round-off.** The history files are
+written in single precision, so the differences left are flips of the last
+bit of a stored value: the river run's 1.9e-9 m/s is at a single point where
+u = -0.0301691350 against -0.0301691368 (one float32 step there is 1.86e-9),
+and its Hs differs by one float32 step (2.4e-7 m at 1.2 m) at a few hundred
+points. The double-precision states agree to their last bits.
+
+Before `turbulence_halo` was added, the base A15 case kept a residual of
+1.8e-7 m/s (2.4e-7 with the river): the restored state was bit-identical, and
+the difference appeared in the next steps at the periodic seam and on the
+crest. Tracing it (above) found the empty ghost columns of `tke` and `gls`.
+With that change the residual went from 1.8e-7 to 5.8e-11 m/s, and SWAN's
+output became bit-identical.
 
 Earlier results with the same changes (2026-10-24, control VM, canopy
 variant, 6 ROMS + 2 SWAN), adding the pieces one at a time:
@@ -179,4 +269,6 @@ three of them (fluxes, GLS fields, bed properties).
 
 Any run with waves (`WEC`) restarted from a `PERFECT_RESTART` file: segmented
 runs on interruptible machines, runs continued after a crash or a time limit.
-Rivers as face sources and GLS turbulence add to it.
+Rivers as face sources and GLS turbulence add to it. `turbulence_halo` also
+concerns runs without waves: any periodic run with GLS or Mellor-Yamada
+turbulence restarted from a `PERFECT_RESTART` file.
