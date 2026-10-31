@@ -184,10 +184,15 @@ every start goes through before the first step), in the same way
 ```
 
 This one has nothing to do with waves: any periodic run with GLS or
-Mellor-Yamada turbulence restarted with `PERFECT_RESTART` had it. Runs that
-are not periodic and use one tile were not affected; with several MPI tiles,
-the tile halos were probably already filled by the parallel read, so the
-`mp_exchange4d` call is a safeguard.
+Mellor-Yamada turbulence restarted with `PERFECT_RESTART` could have it. It
+was seen with the periodic direction in a single tile (A15 runs as 1 x 6
+tiles, `NtileI = 1`), where the periodic copies are made by
+`exchange_w3d_tile`, which the restart read does not call. With the periodic
+direction split over several tiles, the parallel read appears to fill those
+points already: an earlier periodic GLS case with `NtileI = 6` restarted
+bit-identically without this change. There the `mp_exchange4d` call is a
+safeguard, and the change does no harm. Runs that are not periodic are not
+affected.
 
 ## What is unchanged
 
