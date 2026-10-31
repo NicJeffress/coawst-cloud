@@ -1,0 +1,588 @@
+diff -ruN a/ROMS/External/varinfo.yaml b/ROMS/External/varinfo.yaml
+--- a/ROMS/External/varinfo.yaml
++++ b/ROMS/External/varinfo.yaml
+@@ -2718,6 +2718,17 @@
+     add_offset:     0.0d0
+     scale:          1.0d0
+ 
++  - variable:       zetat                                            # Output
++    standard_name:  sea_water_waves_effect_on_currents_quasi_static_geopotential
++    long_name:      waves effect on currents quasi-static geopotential
++    units:          meter2 second-2                                  # [m2/s2]
++    field:          WEC quasi-static geopotential
++    time:           ocean_time
++    index_code:     idWztt
++    type:           r2dvar
++    add_offset:     0.0d0
++    scale:          1.0d0
++
+   - variable:       ubar_stokes                                      # Output
+     standard_name:  sea_water_barotropic_stokes_x_velocity
+     long_name:      vertically-integrated Stokes u-velocity
+diff -ruN a/ROMS/Modules/mod_ncparam.F b/ROMS/Modules/mod_ncparam.F
+--- a/ROMS/Modules/mod_ncparam.F
++++ b/ROMS/Modules/mod_ncparam.F
+@@ -458,6 +458,7 @@
+       integer  :: idWvel        ! true vertical velocity
+       integer  :: idWvqp        ! wave spectrum peakedness
+       integer  :: idWztw        ! wec quasi-static sea level adjustment
++      integer  :: idWztt        ! wec quasi-static geopotential (restart)
+       integer  :: idXgrP        ! x-locations of PSI-points
+       integer  :: idXgrR        ! x-locations of RHO-points
+       integer  :: idXgrU        ! x-locations of U-points
+@@ -1973,6 +1974,8 @@
+             idWcpy=varid
+           CASE ('idWztw')
+             idWztw=varid
++          CASE ('idWztt')
++            idWztt=varid
+           CASE ('idWqsp')
+             idWqsp=varid
+           CASE ('idWbeh')
+diff -ruN a/ROMS/Nonlinear/initial.F b/ROMS/Nonlinear/initial.F
+--- a/ROMS/Nonlinear/initial.F
++++ b/ROMS/Nonlinear/initial.F
+@@ -591,6 +591,11 @@
+ !
+       DO ng=1,Ngrids
+         DO tile=first_tile(ng),last_tile(ng),+1
++#if defined PERFECT_RESTART && defined WEC
++!  Perfect restart with waves: keep the fluxes read from the restart
++!  file (main3d.F).
++          IF (.not.PerfectRST(ng))                                      &
++#endif
+           CALL set_massflux (ng, tile, iNLM)
+         END DO
+ !$OMP BARRIER
+diff -ruN a/ROMS/Nonlinear/main3d.F b/ROMS/Nonlinear/main3d.F
+--- a/ROMS/Nonlinear/main3d.F
++++ b/ROMS/Nonlinear/main3d.F
+@@ -134,6 +134,9 @@
+ # endif
+       USE set_depth_mod,        ONLY : set_depth
+       USE set_massflux_mod,     ONLY : set_massflux
++# if defined PERFECT_RESTART && defined WEC
++      USE set_massflux_mod,     ONLY : exchange_massflux
++# endif
+ # if defined SSH_TIDES || defined UV_TIDES
+       USE set_tides_mod,        ONLY : set_tides
+ # endif
+@@ -363,7 +366,18 @@
+             DO ig=1,GridsInLayer(nl)
+               ng=GridNumber(ig,nl)
+               DO tile=first_tile(ng),last_tile(ng),+1
++# if defined PERFECT_RESTART && defined WEC
++!  Perfect restart with waves: the first step uses the volume fluxes
++!  read from the restart file, computed (as here) before the coupling
++!  exchange with the Stokes drift of the previous exchange.
++                IF (PerfectRST(ng).and.(iic(ng).eq.ntstart(ng))) THEN
++                  CALL exchange_massflux (ng, tile, iNLM)
++                ELSE
++                  CALL set_massflux (ng, tile, iNLM)
++                END IF
++# else
+                 CALL set_massflux (ng, tile, iNLM)
++# endif
+ # ifndef TS_FIXED
+                 CALL rho_eos (ng, tile, iNLM)
+ # endif
+diff -ruN a/ROMS/Nonlinear/set_massflux.F b/ROMS/Nonlinear/set_massflux.F
+--- a/ROMS/Nonlinear/set_massflux.F
++++ b/ROMS/Nonlinear/set_massflux.F
+@@ -18,6 +18,9 @@
+ !
+       PRIVATE
+       PUBLIC  :: set_massflux
++# if defined PERFECT_RESTART && defined WEC
++      PUBLIC  :: exchange_massflux
++# endif
+ # ifdef ADJOINT
+       PUBLIC  :: reset_massflux
+ # endif
+@@ -68,6 +71,52 @@
+ !
+       RETURN
+       END SUBROUTINE set_massflux
++# if defined PERFECT_RESTART && defined WEC
++!
++!***********************************************************************
++      SUBROUTINE exchange_massflux (ng, tile, model)
++!***********************************************************************
++!
++!  Halo and periodic exchange of the volume fluxes Huon, Hvom read from
++!  a perfect restart file (main3d.F: first step after a restart with
++!  waves, which uses them instead of calling set_massflux).
++!
++      USE mod_param
++      USE mod_grid
++      USE mod_scalars
++!
++      USE exchange_3d_mod
++#  ifdef DISTRIBUTE
++      USE mp_exchange_mod, ONLY : mp_exchange3d
++#  endif
++!
++!  Imported variable declarations.
++!
++      integer, intent(in) :: ng, tile, model
++!
++!  Local variable declarations.
++!
++#  include "tile.h"
++!
++      IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
++        CALL exchange_u3d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj, 1, N(ng),           &
++     &                          GRID(ng) % Huon)
++        CALL exchange_v3d_tile (ng, tile,                               &
++     &                          LBi, UBi, LBj, UBj, 1, N(ng),           &
++     &                          GRID(ng) % Hvom)
++      END IF
++#  ifdef DISTRIBUTE
++      CALL mp_exchange3d (ng, tile, model, 2,                           &
++     &                    LBi, UBi, LBj, UBj, 1, N(ng),                 &
++     &                    NghostPoints,                                 &
++     &                    EWperiodic(ng), NSperiodic(ng),               &
++     &                    GRID(ng) % Huon, GRID(ng) % Hvom)
++#  endif
++!
++      RETURN
++      END SUBROUTINE exchange_massflux
++# endif
+ !
+ !***********************************************************************
+       SUBROUTINE set_massflux_tile (ng, tile, model,                    &
+diff -ruN a/ROMS/Utility/def_rst.F b/ROMS/Utility/def_rst.F
+--- a/ROMS/Utility/def_rst.F
++++ b/ROMS/Utility/def_rst.F
+@@ -902,6 +902,69 @@
+         status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idRzet),    &
+      &                 NF_FRST, nvd4, r2dgrd, Aval, Vinfo, ncname)
+         IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++# ifdef WEC_VF
++!
++!  Define WEC quasi-static geopotential: prsgrd uses the value of the
++!  previous step (wec_vf runs after it in rhs3d).
++!
++        Vinfo( 1)=Vname(1,idWztt)
++        Vinfo( 2)=Vname(2,idWztt)
++        Vinfo( 3)=Vname(3,idWztt)
++        Vinfo(14)=Vname(4,idWztt)
++        Vinfo(16)=Vname(1,idtime)
++#  if defined WRITE_WATER && defined MASKING
++        Vinfo(24)='_FillValue'
++        Aval(6)=spval
++#  endif
++        Vinfo(21)=Vname(6,idWztt)
++        Vinfo(22)='coordinates'
++        Aval(5)=REAL(Iinfo(1,idFsur,ng),r8)
++        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idWztt),    &
++     &                 NF_FRST, nvd3, t2dgrd, Aval, Vinfo, ncname)
++        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++# endif
++# if defined WEC && defined SOLVE3D
++!
++!  Define u-volume flux of the last step start: the first step after a
++!  restart uses it (main3d.F), as set_massflux computed it before the
++!  coupling exchange.
++!
++        Vinfo( 1)=Vname(1,idHUav)
++        Vinfo( 2)=Vname(2,idHUav)
++        Vinfo( 3)=Vname(3,idHUav)
++        Vinfo(14)=Vname(4,idHUav)
++        Vinfo(16)=Vname(1,idtime)
++#  if defined WRITE_WATER && defined MASKING
++        Vinfo(24)='_FillValue'
++        Aval(6)=spval
++#  endif
++        Vinfo(21)=Vname(6,idHUav)
++        Vinfo(22)='coordinates'
++        Aval(5)=REAL(Iinfo(1,idHUav,ng),r8)
++        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idHUav),    &
++     &                 NF_FRST, nvd4, u3dgrd, Aval, Vinfo, ncname)
++        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++!
++!  Define v-volume flux of the last step start: the first step after a
++!  restart uses it (main3d.F), as set_massflux computed it before the
++!  coupling exchange.
++!
++        Vinfo( 1)=Vname(1,idHVav)
++        Vinfo( 2)=Vname(2,idHVav)
++        Vinfo( 3)=Vname(3,idHVav)
++        Vinfo(14)=Vname(4,idHVav)
++        Vinfo(16)=Vname(1,idtime)
++#  if defined WRITE_WATER && defined MASKING
++        Vinfo(24)='_FillValue'
++        Aval(6)=spval
++#  endif
++        Vinfo(21)=Vname(6,idHVav)
++        Vinfo(22)='coordinates'
++        Aval(5)=REAL(Iinfo(1,idHVav,ng),r8)
++        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idHVav),    &
++     &                 NF_FRST, nvd4, v3dgrd, Aval, Vinfo, ncname)
++        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++# endif
+ #endif
+ !
+ !  Define 2D momentum in the XI-direction.
+@@ -1908,6 +1971,19 @@
+           ELSE IF (TRIM(var_name(i)).eq.TRIM(Vname(1,idRzet))) THEN
+             got_var(idRzet)=.TRUE.
+             RST(ng)%Vid(idRzet)=var_id(i)
++# ifdef WEC_VF
++          ELSE IF (TRIM(var_name(i)).eq.TRIM(Vname(1,idWztt))) THEN
++            got_var(idWztt)=.TRUE.
++            RST(ng)%Vid(idWztt)=var_id(i)
++# endif
++# if defined WEC && defined SOLVE3D
++          ELSE IF (TRIM(var_name(i)).eq.TRIM(Vname(1,idHUav))) THEN
++            got_var(idHUav)=.TRUE.
++            RST(ng)%Vid(idHUav)=var_id(i)
++          ELSE IF (TRIM(var_name(i)).eq.TRIM(Vname(1,idHVav))) THEN
++            got_var(idHVav)=.TRUE.
++            RST(ng)%Vid(idHVav)=var_id(i)
++# endif
+ #endif
+           ELSE IF (TRIM(var_name(i)).eq.TRIM(Vname(1,idUbar))) THEN
+             got_var(idUbar)=.TRUE.
+@@ -2142,6 +2218,28 @@
+           exit_flag=3
+           RETURN
+         END IF
++# ifdef WEC_VF
++        IF (.not.got_var(idWztt)) THEN
++          IF (Master) WRITE (stdout,60) TRIM(Vname(1,idWztt)),          &
++     &                                  TRIM(ncname)
++          exit_flag=3
++          RETURN
++        END IF
++# endif
++# if defined WEC && defined SOLVE3D
++        IF (.not.got_var(idHUav)) THEN
++          IF (Master) WRITE (stdout,60) TRIM(Vname(1,idHUav)),          &
++     &                                  TRIM(ncname)
++          exit_flag=3
++          RETURN
++        END IF
++        IF (.not.got_var(idHVav)) THEN
++          IF (Master) WRITE (stdout,60) TRIM(Vname(1,idHVav)),          &
++     &                                  TRIM(ncname)
++          exit_flag=3
++          RETURN
++        END IF
++# endif
+ #endif
+         IF (.not.got_var(idUbar)) THEN
+           IF (Master) WRITE (stdout,60) TRIM(Vname(1,idUbar)),          &
+diff -ruN a/ROMS/Utility/get_state_nlm_nf90.h b/ROMS/Utility/get_state_nlm_nf90.h
+--- a/ROMS/Utility/get_state_nlm_nf90.h
++++ b/ROMS/Utility/get_state_nlm_nf90.h
+@@ -247,6 +247,189 @@
+             END IF
+           END IF
+         END IF
++#if defined PERFECT_RESTART && defined WEC_VF
++!
++!  Read in WEC quasi-static geopotential (m2/s2), which prsgrd uses from
++!  the previous step. Restart files written without it leave it zero.
++!
++        IF (Perfect2D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idWztt)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*r2dvar
++            status=nf_fread2d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idWztt), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj,                       &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % rmask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        OCEAN(ng) % zetat,                        &
++     &                        checksum = Fhash)
++# else
++     &                        OCEAN(ng) % zetat)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idWztt)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            ELSE
++              IF (Master) THEN
++                WRITE (stdout,70) TRIM(Vname(2,idWztt)), Fmin, Fmax
++              END IF
++            END IF
++          END IF
++        END IF
++#endif
++#if defined PERFECT_RESTART && defined WEC && defined SOLVE3D
++!
++!  Read in the volume fluxes Huon, Hvom (m3/s), which the first step
++!  after the restart uses (main3d.F), and the 3D Stokes velocities (m/s),
++!  which COAWST writes to the restart file but did not read back.
++!
++        IF (Perfect3D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idHUav)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*u3dvar
++            status=nf_fread3d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idHUav), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj, 1, N(ng),             &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % umask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        GRID(ng) % Huon,                          &
++     &                        checksum = Fhash)
++# else
++     &                        GRID(ng) % Huon)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idHUav)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            ELSE
++              IF (Master) THEN
++                WRITE (stdout,70) TRIM(Vname(2,idHUav)), Fmin, Fmax
++              END IF
++            END IF
++          END IF
++        END IF
++        IF (Perfect3D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idHVav)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*v3dvar
++            status=nf_fread3d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idHVav), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj, 1, N(ng),             &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % vmask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        GRID(ng) % Hvom,                          &
++     &                        checksum = Fhash)
++# else
++     &                        GRID(ng) % Hvom)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idHVav)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            ELSE
++              IF (Master) THEN
++                WRITE (stdout,70) TRIM(Vname(2,idHVav)), Fmin, Fmax
++              END IF
++            END IF
++          END IF
++        END IF
++        IF (Perfect3D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idU3Sd)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*u3dvar
++            status=nf_fread3d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idU3Sd), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj, 1, N(ng),             &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % umask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        OCEAN(ng) % u_stokes,                     &
++     &                        checksum = Fhash)
++# else
++     &                        OCEAN(ng) % u_stokes)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idU3Sd)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            ELSE
++              IF (Master) THEN
++                WRITE (stdout,70) TRIM(Vname(2,idU3Sd)), Fmin, Fmax
++              END IF
++            END IF
++          END IF
++        END IF
++        IF (Perfect3D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idV3Sd)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*v3dvar
++            status=nf_fread3d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idV3Sd), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj, 1, N(ng),             &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % vmask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        OCEAN(ng) % v_stokes,                     &
++     &                        checksum = Fhash)
++# else
++     &                        OCEAN(ng) % v_stokes)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idV3Sd)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            ELSE
++              IF (Master) THEN
++                WRITE (stdout,70) TRIM(Vname(2,idV3Sd)), Fmin, Fmax
++              END IF
++            END IF
++          END IF
++        END IF
++#endif
+ !
+ !  Read in nonlinear 2D U-momentum component (m/s).
+ !
+diff -ruN a/ROMS/Utility/wrt_rst.F b/ROMS/Utility/wrt_rst.F
+--- a/ROMS/Utility/wrt_rst.F
++++ b/ROMS/Utility/wrt_rst.F
+@@ -413,6 +413,75 @@
+         ioerror=status
+         RETURN
+       END IF
++# ifdef WEC_VF
++!
++!  Write out WEC quasi-static geopotential (used lagged by prsgrd).
++!
++      scale=1.0_dp
++      gtype=gfactor*r2dvar
++      status=nf_fwrite2d(ng, model, RST(ng)%ncid, idWztt,               &
++     &                   RST(ng)%Vid(idWztt),                           &
++     &                   RST(ng)%Rindex, gtype,                         &
++     &                   LBi, UBi, LBj, UBj, scale,                     &
++#  ifdef MASKING
++     &                   GRID(ng) % rmask,                              &
++#  endif
++     &                   OCEAN(ng) % zetat)
++      IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++        IF (Master) THEN
++          WRITE (stdout,20) TRIM(Vname(1,idWztt)), RST(ng)%Rindex
++        END IF
++        exit_flag=3
++        ioerror=status
++        RETURN
++      END IF
++# endif
++# if defined WEC && defined SOLVE3D
++!
++!  Write out Huon, used by the first step after a restart (main3d.F).
++!
++      scale=1.0_dp
++      gtype=gfactor*u3dvar
++      status=nf_fwrite3d(ng, model, RST(ng)%ncid, idHUav,               &
++     &                   RST(ng)%Vid(idHUav),                           &
++     &                   RST(ng)%Rindex, gtype,                         &
++     &                   LBi, UBi, LBj, UBj, 1, N(ng), scale,           &
++#  ifdef MASKING
++     &                   GRID(ng) % umask,                              &
++#  endif
++     &                   GRID(ng) % Huon,                              &
++     &                   SetFillVal = .FALSE.)
++      IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++        IF (Master) THEN
++          WRITE (stdout,20) TRIM(Vname(1,idHUav)), RST(ng)%Rindex
++        END IF
++        exit_flag=3
++        ioerror=status
++        RETURN
++      END IF
++!
++!  Write out Hvom, used by the first step after a restart (main3d.F).
++!
++      scale=1.0_dp
++      gtype=gfactor*v3dvar
++      status=nf_fwrite3d(ng, model, RST(ng)%ncid, idHVav,               &
++     &                   RST(ng)%Vid(idHVav),                           &
++     &                   RST(ng)%Rindex, gtype,                         &
++     &                   LBi, UBi, LBj, UBj, 1, N(ng), scale,           &
++#  ifdef MASKING
++     &                   GRID(ng) % vmask,                              &
++#  endif
++     &                   GRID(ng) % Hvom,                              &
++     &                   SetFillVal = .FALSE.)
++      IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++        IF (Master) THEN
++          WRITE (stdout,20) TRIM(Vname(1,idHVav)), RST(ng)%Rindex
++        END IF
++        exit_flag=3
++        ioerror=status
++        RETURN
++      END IF
++# endif
+ #endif
+ !
+ !  Write out 2D momentum component (m/s) in the XI-direction.
+@@ -1010,7 +1079,8 @@
+ #  ifdef MASKING
+      &                   GRID(ng) % rmask,                              &
+ #  endif
+-     &                   MIXING(ng) % Lscale)
++     &                   MIXING(ng) % Lscale,                        &
++     &                   SetFillVal = .FALSE.)
+       IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
+         IF (Master) THEN
+           WRITE (stdout,20) TRIM(Vname(1,idVmLS)), RST(ng)%Rindex
+@@ -1031,7 +1101,8 @@
+ #  ifdef MASKING
+      &                   GRID(ng) % rmask,                              &
+ #  endif
+-     &                   MIXING(ng) % Akk)
++     &                   MIXING(ng) % Akk,                           &
++     &                   SetFillVal = .FALSE.)
+       IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
+         IF (Master) THEN
+           WRITE (stdout,20) TRIM(Vname(1,idVmKK)), RST(ng)%Rindex
+@@ -1053,7 +1124,8 @@
+ #  ifdef MASKING
+      &                   GRID(ng) % rmask,                              &
+ #  endif
+-     &                   MIXING(ng) % Akp)
++     &                   MIXING(ng) % Akp,                           &
++     &                   SetFillVal = .FALSE.)
+       IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
+         IF (Master) THEN
+           WRITE (stdout,20) TRIM(Vname(1,idVmKP)), RST(ng)%Rindex
+@@ -1221,7 +1293,8 @@
+ #  ifdef MASKING
+      &                     GRID(ng) % rmask,                            &
+ #  endif
+-     &                     SEDBED(ng) % bottom(:,:,i))
++     &                     SEDBED(ng) % bottom(:,:,i),                  &
++     &                     SetFillVal = .FALSE.)
+         IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
+           IF (Master) THEN
+             WRITE (stdout,20) TRIM(Vname(1,idBott(i))), RST(ng)%Rindex

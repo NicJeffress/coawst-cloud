@@ -29,6 +29,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/roms-wec-stokes-fixes/run.sh SOURCE OUTDIR` | roms-wec-stokes-fixes | source check of the u and v loops; Inlet_test before vs after | 15 min |
 | `fixes/roms-limit-bstress/run.sh OUTDIR` | roms-limit-bstress | preprocessed Fortran of Veg_test, as shipped and `-WET_DRY +LIMIT_BSTRESS` | 15 min |
 | `fixes/roms-wetdry-stokes/run.sh OUTDIR [MINUTES]` | roms-wetdry-stokes | Reef_Ideal_A15 with vs without WET_DRY: 0.24 m/s apart before, 6e-5 after; executables without WET_DRY identical | 15 min + runs |
+| `fixes/roms-restart-wec/run.sh OUTDIR [TOTAL RST]` | roms-restart-wec | 60 min straight vs 30 + 30 restarted, A15 with canopy and A15 with a river (+ no-river baseline) | 20 min + runs |
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
 | `fixes/swan-stop-on-input-errors/run.sh OUTDIR` | swan-stop-on-input-errors | rejected SWAN request: carries on before, clean stop after | 15 min |
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
@@ -61,6 +62,7 @@ setup needs.
 | `tools/run_case.sh IMAGE OUTDIR NAME CASE [TI TJ NWAV MINUTES]` | runs a tests/cases case (e.g. Reef_Ideal_A15) |
 | `tools/case_inside.sh CASE [...]` | the same, inside a coawst container |
 | `tools/variant_patches.sh SOURCE OUTDIR NAME[,NAME]` | a patch folder with SWAN changes left out (for with/without comparisons) |
+| `tools/restart_inside.sh CASE TOTAL RST [TI TJ NWAV]` | straight, part1 and restarted part2 of a case in one container (restart tests) |
 | `tools/compare_nc.py A.nc B.nc [VAR ...] [--last]` | largest difference per variable, bit-identical or not |
 
 The Python scripts need numpy and netCDF4; the tests use `$PYTHON`
