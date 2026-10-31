@@ -1,0 +1,354 @@
+--- a/SWAN/src/swanmain.ftn
++++ b/SWAN/src/swanmain.ftn
+@@ -2516,6 +2516,7 @@
+       KREPTX = 0                                                          33.09
+       XCPER  = 0.
+       YCPER  = 0.
++      KRING  = 0
+       REARTH = 2.E7/PI                                                    33.09
+       LENDEG = 2.E7/180.                                                  33.09
+ !
+@@ -8119,7 +8120,8 @@
+       IF (KREPTX.GT.0) THEN                                               33.08
+ !       --- curvilinear: the period comes from READGRID COORDINATES,
+ !           which reads one extra column (column 1 shifted by a period)
+-        IF (OPTG.EQ.3 .AND. XCPER.EQ.0. .AND. YCPER.EQ.0.)
++        IF (OPTG.EQ.3 .AND. XCPER.EQ.0. .AND. YCPER.EQ.0. .AND.
++     &      KRING.EQ.0)
+      &  CALL MSGERR (3, 'REPeating curvilinear grid: no period found')
+         IF (OPTG.EQ.5)                                                    40.80
+      &  CALL MSGERR (3, 'Unstructured grid cannot be REPeating')          40.80
+--- a/SWAN/src/swanpre1.ftn
++++ b/SWAN/src/swanpre1.ftn
+@@ -5250,6 +5250,15 @@
+          WRITE (PRINTF, '(A,2(1X,E14.7))')
+      &      ' REPeating curvilinear grid, period vector (x,y):',
+      &      XCPER, YCPER
++!        closed grid (O-grid around an island): column MXC+1 is column 1
++!        itself and the period vector is zero
++         IF (SQRT(XCPER**2+YCPER**2) .LE. TOL) THEN
++            XCPER = 0.
++            YCPER = 0.
++            KRING = 1
++            WRITE (PRINTF, '(A)') ' REPeating curvilinear grid is '//
++     &         'closed (period vector 0)'
++         ENDIF
+       ENDIF
+       RETURN
+ ! * end of subroutine CVPERI *
+@@ -6455,6 +6464,7 @@
+ !
+       USE SWCOMM3                                                         40.41
+       USE OCPCOMM4                                                        40.41
++      USE SWCOMM4
+ !
+       IMPLICIT NONE
+ !
+@@ -6521,6 +6531,7 @@
+ !     IENT    number of entries of this subroutine
+ !
+       INTEGER IENT
++      INTEGER IXV, IXVM, IXVP
+ !
+ !  8. Subroutines used
+ !
+@@ -6573,12 +6584,25 @@
+       CALL STRACE (IENT, 'VALIDBP')
+ !
+       VALIDBP = .TRUE.
++!     REPeating grid: the point (CGBOUN also asks for IX = 0) and its
++!     x-neighbours wrap around the seam
++      IXV = IX
++      IF (KREPTX.GT.0) THEN
++        IF (IXV.LT.1)   IXV = IXV + MXC
++        IF (IXV.GT.MXC) IXV = IXV - MXC
++      ENDIF
++      IXVM = IXV - 1
++      IXVP = IXV + 1
++      IF (KREPTX.GT.0) THEN
++        IF (IXVM.LT.1)   IXVM = MXC
++        IF (IXVP.GT.MXC) IXVP = 1
++      ENDIF
+ !      IF (PVALID(IX,IY,KGRPNT)) THEN
+         WNP = 0
+-        IF (PVALID(IX-1,IY,KGRPNT)) WNP = WNP +1
+-        IF (PVALID(IX,IY-1,KGRPNT)) WNP = WNP +1
+-        IF (PVALID(IX+1,IY,KGRPNT)) WNP = WNP +1
+-        IF (PVALID(IX,IY+1,KGRPNT)) WNP = WNP +1
++        IF (PVALID(IXVM,IY,KGRPNT)) WNP = WNP +1
++        IF (PVALID(IXV,IY-1,KGRPNT)) WNP = WNP +1
++        IF (PVALID(IXVP,IY,KGRPNT)) WNP = WNP +1
++        IF (PVALID(IXV,IY+1,KGRPNT)) WNP = WNP +1
+ !         isolated point
+         IF (WNP.EQ.0) VALIDBP = .FALSE.
+ !         point with one valid (wet) neighbouring grid point
+@@ -6586,33 +6610,33 @@
+ !
+ !         neighbouring points on straight line (i.e. in fact 1D)
+         IF ((WNP.EQ.2) .AND.(
+-     &      (PVALID(IX,IY-1,KGRPNT).AND.PVALID(IX,IY+1,KGRPNT)) .OR.
+-     &      (PVALID(IX-1,IY,KGRPNT).AND.PVALID(IX+1,IY,KGRPNT)) .OR.
++     &      (PVALID(IXV,IY-1,KGRPNT).AND.PVALID(IXV,IY+1,KGRPNT)) .OR.
++     &      (PVALID(IXVM,IY,KGRPNT).AND.PVALID(IXVP,IY,KGRPNT)) .OR.
+ !         neighbouring points make angle but no wet point 'between' them
+-     &      (PVALID(IX-1,IY,KGRPNT).AND.PVALID(IX,IY+1,KGRPNT) .AND.
+-     &       .NOT. PVALID(IX-1,IY+1,KGRPNT)) .OR.
+-     &      (PVALID(IX-1,IY,KGRPNT).AND.PVALID(IX,IY-1,KGRPNT) .AND.
+-     &       .NOT. PVALID(IX-1,IY-1,KGRPNT)) .OR.
+-     &      (PVALID(IX+1,IY,KGRPNT).AND.PVALID(IX,IY-1,KGRPNT) .AND.
+-     &       .NOT. PVALID(IX+1,IY-1,KGRPNT)) .OR.
+-     &      (PVALID(IX+1,IY,KGRPNT).AND.PVALID(IX,IY+1,KGRPNT) .AND.
+-     &       .NOT. PVALID(IX+1,IY+1,KGRPNT)) )  )  VALIDBP = .FALSE.
++     &      (PVALID(IXVM,IY,KGRPNT).AND.PVALID(IXV,IY+1,KGRPNT) .AND.
++     &       .NOT. PVALID(IXVM,IY+1,KGRPNT)) .OR.
++     &      (PVALID(IXVM,IY,KGRPNT).AND.PVALID(IXV,IY-1,KGRPNT) .AND.
++     &       .NOT. PVALID(IXVM,IY-1,KGRPNT)) .OR.
++     &      (PVALID(IXVP,IY,KGRPNT).AND.PVALID(IXV,IY-1,KGRPNT) .AND.
++     &       .NOT. PVALID(IXVP,IY-1,KGRPNT)) .OR.
++     &      (PVALID(IXVP,IY,KGRPNT).AND.PVALID(IXV,IY+1,KGRPNT) .AND.
++     &       .NOT. PVALID(IXVP,IY+1,KGRPNT)) )  )  VALIDBP = .FALSE.
+ !
+ !        point (IX,IY) is 1D connection between areas or isolated
+ !        centre point of 'half plus'
+         IF ((WNP.EQ.3) .AND.(
+-     &       (.NOT.PVALID(IX-1,IY,KGRPNT) .AND.
+-     &        .NOT.PVALID(IX+1,IY-1,KGRPNT).AND.
+-     &        .NOT.PVALID(IX+1,IY+1,KGRPNT)).OR.
+-     &       (.NOT.PVALID(IX+1,IY,KGRPNT) .AND.
+-     &        .NOT.PVALID(IX-1,IY-1,KGRPNT).AND.
+-     &        .NOT.PVALID(IX-1,IY+1,KGRPNT)).OR.
+-     &       (.NOT.PVALID(IX,IY-1,KGRPNT) .AND.
+-     &        .NOT.PVALID(IX-1,IY+1,KGRPNT).AND.
+-     &        .NOT.PVALID(IX+1,IY+1,KGRPNT)).OR.
+-     &       (.NOT.PVALID(IX,IY+1,KGRPNT) .AND.
+-     &        .NOT.PVALID(IX-1,IY-1,KGRPNT).AND.
+-     &        .NOT.PVALID(IX+1,IY-1,KGRPNT)) )  )  VALIDBP = .FALSE.
++     &       (.NOT.PVALID(IXVM,IY,KGRPNT) .AND.
++     &        .NOT.PVALID(IXVP,IY-1,KGRPNT).AND.
++     &        .NOT.PVALID(IXVP,IY+1,KGRPNT)).OR.
++     &       (.NOT.PVALID(IXVP,IY,KGRPNT) .AND.
++     &        .NOT.PVALID(IXVM,IY-1,KGRPNT).AND.
++     &        .NOT.PVALID(IXVM,IY+1,KGRPNT)).OR.
++     &       (.NOT.PVALID(IXV,IY-1,KGRPNT) .AND.
++     &        .NOT.PVALID(IXVM,IY+1,KGRPNT).AND.
++     &        .NOT.PVALID(IXVP,IY+1,KGRPNT)).OR.
++     &       (.NOT.PVALID(IXV,IY+1,KGRPNT) .AND.
++     &        .NOT.PVALID(IXVM,IY-1,KGRPNT).AND.
++     &        .NOT.PVALID(IXVP,IY-1,KGRPNT)) )  )  VALIDBP = .FALSE.
+ !
+       RETURN
+       END
+--- a/SWAN/src/swanser.ftn
++++ b/SWAN/src/swanser.ftn
+@@ -1361,7 +1361,7 @@
+ !     a guess, so the copies one period either side are tried as well
+       NPER = 0
+       DO IY = 1, MYC
+-         IF (KGRPNT(1,IY).GT.1) THEN
++         IF (KGRPNT(1,IY).GT.1 .AND. KRING.EQ.0) THEN
+             NPER = FLOOR(((XP-XCGRID(1,IY))*XCPER +
+      &                    (YP-YCGRID(1,IY))*YCPER) /
+      &                   (XCPER**2 + YCPER**2))
+--- a/SWAN/src/swmod1.ftn
++++ b/SWAN/src/swmod1.ftn
+@@ -3172,6 +3172,9 @@
+ ! XCPER  [    0.] x component of the period vector of a repeating grid (KREPTX>0): grid
+ !                 column MXC+1 (not stored) is column 1 shifted by (XCPER,YCPER)
+ ! YCPER  [    0.] y component of that period vector
++! KRING  [    0 ] 1: repeating curvilinear grid that closes on itself (O-grid),
++!                 i.e. period vector 0; the coupler then maps ROMS i = 1..Lm to
++!                 SWAN columns 1..MXC
+ !
+       INTEGER PROPSC,    KSPHER,    KREPTX
+       INTEGER PROPSL
+@@ -3179,6 +3182,7 @@
+       INTEGER PROPFL
+       REAL    WAVAGE,    REARTH,    LENDEG
+       REAL    XCPER,     YCPER
++      INTEGER KRING
+ !$OMP THREADPRIVATE(PROPSL)
+ !
+ !  8. Subroutines and functions used
+--- a/SWAN/src/waves_coupler.ftn
++++ b/SWAN/src/waves_coupler.ftn
+@@ -234,7 +234,7 @@
+ !
+       IF (nprocs.eq.1) THEN
+         IF (KREPTX.eq.1) THEN
+-          Isize=MXCGL+1
++          Isize=MXCGL+1+KRING
+         ELSE
+           Isize=MXCGL
+         END IF
+@@ -242,14 +242,14 @@
+       ELSE
+         IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+           IF (KREPTX.eq.1) THEN
+-            Isize=MXC-IHALOX*IBLKAD(1)+1
++            Isize=MXC-IHALOX*IBLKAD(1)+1+KRING
+           ELSE
+             Isize=MXC-IHALOX*IBLKAD(1)
+           END IF
+           Jsize=MYC
+         ELSE
+           IF (KREPTX.eq.1) THEN
+-            Isize=MXC+1
++            Isize=MXC+1+KRING
+           ELSE
+             Isize=MXC
+           END IF
+@@ -260,10 +260,11 @@
+       allocate ( start(Jsize) )
+       allocate ( length(Jsize) )
+ !
+-!  Add offset of 1 for repeating x-dir grids.
++!  Add offset of 1 for repeating x-dir grids, 2 for closed ones
++!  (KRING: ROMS i = 0 and Lm+1 are both outside SWAN's grid).
+ !
+       IF (KREPTX.eq.1) THEN
+-        MXCGLc=MXCGL+1
++        MXCGLc=MXCGL+1+KRING
+       ELSE
+         MXCGLc=MXCGL
+       END IF
+@@ -1019,14 +1020,14 @@
+ !
+       IF (KREPTX.eq.1) THEN
+         IF (nprocs.eq.1) THEN
+-          Isize=MXCGL+1
++          Isize=MXCGL+1+KRING
+           Jsize=MYCGL
+         ELSE
+           IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+-            Isize=MXC-IHALOX*IBLKAD(1)+1
++            Isize=MXC-IHALOX*IBLKAD(1)+1+KRING
+             Jsize=MYC
+           ELSE
+-            Isize=MXC+1
++            Isize=MXC+1+KRING
+             Jsize=MYC-IHALOY*IBLKAD(1)
+           END IF
+         END IF
+@@ -1048,7 +1049,13 @@
+         IP=start-1
+         IPI=0
+         DO j=1,Jsize
+-          DO i=1,Isize-1
++!         closed grid: the first slot (ROMS i = 0) is SWAN column MXC
++          IF (KRING.EQ.1) THEN
++            IPI=IPI+1
++            avdata(IPI)=REAL( VOQ(IP+MXC,VOQR(IVTYPE)),m8 )
++            isrc(IPI)=IP+MXC
++          END IF
++          DO i=1,Isize-1-KRING
+             IP=IP+1
+             IPI=IPI+1
+             avdata(IPI)=REAL( VOQ(IP,VOQR(IVTYPE)),m8 )
+@@ -1062,10 +1069,16 @@
+         IP=start-1
+         IPI=0
+         DO j=1,Jsize
+-          IP=IP+Isize-1
++          IP=IP+Isize-1-KRING
+           IPI=IPI+Isize
+-          avdata(IPI)=REAL( VOQ(IP,VOQR(IVTYPE)),m8 )
+-          isrc(IPI)=IP
++!         closed grid: the last slot (ROMS i = Lm+1) is SWAN column 1
++          IF (KRING.EQ.1) THEN
++            avdata(IPI)=REAL( VOQ(IP-MXC+1,VOQR(IVTYPE)),m8 )
++            isrc(IPI)=IP-MXC+1
++          ELSE
++            avdata(IPI)=REAL( VOQ(IP,VOQR(IVTYPE)),m8 )
++            isrc(IPI)=IP
++          END IF
+         END DO
+       ELSE
+         DO IP=1,gsmsize
+@@ -1677,6 +1690,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1703,6 +1717,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1733,6 +1748,7 @@
+           range(2)=-Large
+           IP=0
+           DO IY=Jstr,Jend
++            IF (KREPTX.EQ.1) IP=IP+KRING
+             DO IX=Istr,Iend
+               IP=IP+1
+               INDXG=(IY-1)*MXC+IX
+@@ -1764,6 +1780,7 @@
+           range(2)=-Large
+           IP=0
+           DO IY=Jstr,Jend
++            IF (KREPTX.EQ.1) IP=IP+KRING
+             DO IX=Istr,Iend
+               IP=IP+1
+               INDXG=(IY-1)*MXC+IX
+@@ -1792,6 +1809,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1818,6 +1836,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1845,6 +1864,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1872,6 +1892,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1898,6 +1919,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1924,6 +1946,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX
+@@ -1950,6 +1973,7 @@
+         range(2)=-Large
+         IP=0
+         DO IY=Jstr,Jend
++          IF (KREPTX.EQ.1) IP=IP+KRING
+           DO IX=Istr,Iend
+             IP=IP+1
+             INDXG=(IY-1)*MXC+IX

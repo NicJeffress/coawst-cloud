@@ -29,7 +29,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/roms-wec-stokes-fixes/run.sh SOURCE OUTDIR` | roms-wec-stokes-fixes | source check of the u and v loops; Inlet_test before vs after | 15 min |
 | `fixes/roms-limit-bstress/run.sh OUTDIR` | roms-limit-bstress | preprocessed Fortran of Veg_test, as shipped and `-WET_DRY +LIMIT_BSTRESS` | 15 min |
 | `fixes/roms-wetdry-stokes/run.sh OUTDIR [MINUTES]` | roms-wetdry-stokes | Reef_Ideal_A15 with vs without WET_DRY: 0.24 m/s apart before, 6e-5 after; executables without WET_DRY identical | 15 min + runs |
-| `fixes/roms-restart-wec/run.sh OUTDIR [TOTAL RST]` | roms-restart-wec | 60 min straight vs 30 + 30 restarted, A15 with canopy, with a river and bare | 20 min + runs |
+| `fixes/roms-restart-wec/run.sh OUTDIR [TOTAL RST]` | roms-restart-wec | 60 min straight vs 30 + 30 restarted, A15 with canopy, with a river and bare; 4 restart records in one file | 20 min + runs |
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
 | `fixes/swan-stop-on-input-errors/run.sh OUTDIR` | swan-stop-on-input-errors | rejected SWAN request: carries on before, clean stop after | 15 min |
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
@@ -43,12 +43,15 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `improvements/swan-periodic-curvilinear/run.sh OUTDIR` | swan-periodic-curvilinear | standalone periodic SWAN on curvilinear grids: same as regular, seam through the pass, processes, output search, refused before | 20 min |
 | `improvements/roms-wec-stokes-fast/run.sh OUTDIR [MINUTES]` | roms-wec-stokes-fast | Reef_Ideal_A15 with PROFILE: fields at rounding level, WEC kernel CPU time | 10 min + runs |
 | `improvements/build-settings/run.sh OUTDIR` | build settings | Inlet_test SPECOUT on 1 vs 2 SWAN; A15 stock vs engine flags: differences, repeats, speed | 40 min + runs |
+| `improvements/swan-closed-ring/run.sh OUTDIR [MINUTES]` | swan-closed-ring | Circle_Island O-grid: refused before; coupler map in both directions with 1, 2, 3 SWAN; layouts; seam moved; waves from all sides; A15 unchanged | 20 min + runs |
 
 ## Test cases
 
 `cases/` holds cases used by several tests: `Reef_Ideal_A15` and
 `Reef_Ideal_A15_veg` (an idealized fringing reef with a pass, ROMS + SWAN,
-periodic; see their READMEs) and `Swan_Periodic_Test` (standalone SWAN).
+periodic; see their READMEs), `Circle_Island` (a round island with a
+fringing reef on a closed O-grid, ROMS + SWAN; written by its `make_case.py`)
+and `Swan_Periodic_Test` (standalone SWAN).
 Tests that run A15 build with two improvements borrowed from later in the
 series (`swan-netcdf-output`, `swan-periodic-curvilinear`), which its SWAN
 setup needs.
