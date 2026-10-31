@@ -25,6 +25,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | Test | Patch | What it shows | Time (4 vCPUs) |
 |---|---|---|---|
 | `fixes/roms-sed-morph-tiling/run.sh OUTDIR` | roms-sed-morph-tiling | Inlet_test 1x1 vs 1x2 tiles: differ before, bit-identical after | 40 min |
+| `fixes/roms-vegetation/run.sh SOURCE OUTDIR` | roms-vegetation | source check; Reef_Ideal_A15_veg: crash before, clean after, zero-gap stop, tau_veg units effect | 1.5 h |
 | `fixes/roms-wec-stokes-fixes/run.sh SOURCE OUTDIR` | roms-wec-stokes-fixes | source check of the u and v loops; Inlet_test before vs after | 15 min |
 | `fixes/roms-limit-bstress/run.sh OUTDIR` | roms-limit-bstress | preprocessed Fortran of Veg_test, as shipped and `-WET_DRY +LIMIT_BSTRESS` | 15 min |
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
@@ -32,8 +33,18 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
 | `fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR` | swan-vegetation-fixes | source check; Veg_test with VEGETATION 3, submerged and emergent plants | 25 min |
 | `fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR` | swan-periodic-fixes | source check; standalone periodic reef (cases/Swan_Periodic_Test), 1 and 4 SWAN processes | 25 min |
+| `fixes/swan-periodic-fixes/run_a15_coupled.sh SOURCE OUTDIR` | swan-periodic-fixes (`periodic_coupled_stokes`) | coupled periodic Reef_Ideal_A15 with and without the change: blow-up before, clean after | 40 min |
 | `fixes/swan-halo-hang/run.sh OUTDIR [TIMEOUT_S]` | swan-halo-hang | periodic channel with 1100-point rows on 2 SWAN processes: hangs before, finishes after | 15 min |
 | `fixes/swan-exact-restart/run.sh OUTDIR` | swan-exact-restart | standalone SWAN, straight vs restarted, binary and text restart files | 15 min |
+
+## Test cases
+
+`cases/` holds cases used by several tests: `Reef_Ideal_A15` and
+`Reef_Ideal_A15_veg` (an idealized fringing reef with a pass, ROMS + SWAN,
+periodic; see their READMEs) and `Swan_Periodic_Test` (standalone SWAN).
+Tests that run A15 build with two improvements borrowed from later in the
+series (`swan-netcdf-output`, `swan-periodic-curvilinear`), which its SWAN
+setup needs.
 
 ## Tools
 
@@ -46,6 +57,9 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `tools/inlet_inside.sh [TI TJ NWAV HOURS]` | the same run, inside a coawst container (what `run_inlet.sh` calls; usable on a batch system) |
 | `tools/run_project.sh IMAGE OUTDIR NAME PROJECT COUPLING OCEAN SWAN [TI TJ NWAV MINUTES]` | runs any COAWST project in the image (e.g. Projects/Veg_test) |
 | `tools/project_inside.sh ...` | the same, inside a coawst container |
+| `tools/run_case.sh IMAGE OUTDIR NAME CASE [TI TJ NWAV MINUTES]` | runs a tests/cases case (e.g. Reef_Ideal_A15) |
+| `tools/case_inside.sh CASE [...]` | the same, inside a coawst container |
+| `tools/variant_patches.sh SOURCE OUTDIR NAME[,NAME]` | a patch folder with SWAN changes left out (for with/without comparisons) |
 | `tools/compare_nc.py A.nc B.nc [VAR ...] [--last]` | largest difference per variable, bit-identical or not |
 
 The Python scripts need numpy and netCDF4; the tests use `$PYTHON`

@@ -9,6 +9,8 @@
 #   --project P   a project that ships with COAWST instead, e.g. Projects/Veg_test
 #   --app NAME    the case's cpp application flag, e.g. REEF_IDEAL_A15 or VEG_TEST
 #   --tag TAG     image tag (default coawst:<app in lower case>)
+#   --patch-dir D use patch folder D instead of build/coawst/patches (tests that
+#                 build a variant, e.g. with one SWAN change left out)
 #   --series FILE apply this series file instead of patches/series (paths in it
 #                 relative to patches/, e.g. 1-fixes/x.patch); for tests that
 #                 build with part of the series. "none": stock COAWST.
@@ -19,7 +21,7 @@
 # live in this repository.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
-case_dir="" project="" app="" tag="" series=""
+case_dir="" project="" app="" tag="" series="" pdir=$here/patches
 while [ $# -gt 0 ]; do
     case "$1" in
         --case)   case_dir=$2; shift 2 ;;
@@ -27,6 +29,7 @@ while [ $# -gt 0 ]; do
         --app)    app=$2; shift 2 ;;
         --tag)    tag=$2; shift 2 ;;
         --series) series=$2; shift 2 ;;
+        --patch-dir) pdir=$(cd "$2" && pwd); shift 2 ;;
         --)     shift; break ;;
         *) echo "build.sh: unknown argument $1" >&2; exit 2 ;;
     esac
@@ -38,7 +41,7 @@ fi
 ctx=$(mktemp -d)
 trap 'rm -rf "$ctx"' EXIT
 cp "$here/Dockerfile" "$here/apply_series.sh" "$ctx/"
-cp -r "$here/patches" "$ctx/patches"
+cp -r "$pdir" "$ctx/patches"
 mkdir -p "$ctx/vendor" "$ctx/cases"
 cp "$here"/vendor/*.tar.gz "$ctx/vendor/" 2>/dev/null || true
 

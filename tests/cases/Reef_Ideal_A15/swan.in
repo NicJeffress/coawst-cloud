@@ -1,0 +1,136 @@
+PROJECT '' ' '
+ 'Reef_Ideal_A15'
+ 'Bathymetry: Single Reef Pass'
+ 'COMMENTS'
+
+MODE NONSTATIONARY TWODIMENSIONAL
+
+SET DEPMIN 0.10 INRHOG 1 NAUTICAL
+&periodic in x with SWAN patch item 13 - the last column of the coordinate
+&file is column 1 shifted by one period so the grid has 202 columns per period
+COORDINATES CARTESIAN REPEATING
+
+&& KEYWORD for number of nested SWAN grids &&
+NSGRIDS 1
+
+&& KEYWORDS TO CREATE AND READ COMPUTATIONAL GRID &&
+CGRID CURVILINEAR 202 110 EXC 9.999000e+003 &
+        CIRCLE 72 0.04 1.0 20
+READGRID COORDINATES 1 'swan_coord_default_1.grd' 4 0 0 FREE
+
+&& KEYWORDS TO CREATE AND READ BATHYMETRY GRID &&
+INPGRID BOTTOM CURVILINEAR 0 0 202 110 EXC 9.999000e+003
+READINP BOTTOM  1 'swan_bathy_default_1.bot' 4 0 FREE
+
+&& KEYWORD TO CREATE CURRENT GRID &&
+INPGRID CURRENT CURVILINEAR 0 0 202 110 EXC 9.999000e+003              &
+        NONSTAT  20000101.000000 25 DAY 20000126.000000
+
+&& KEYWORD TO CREATE WATER LEVEL GRID &&
+INPGRID WLEV CURVILINEAR 0 0 202 110 EXC 9.999000e+003                 &
+        NONSTAT  20000101.000000 25 DAY 20000126.000000
+
+&& KEYWORD TO CREATE BOTTOM FRICTION GRID &&
+INPGRID FRIC CURVILINEAR 0 0 202 110 EXC 9.999000e+003                 &
+        NONSTAT  20000101.000000 25 DAY 20000126.000000
+
+&&  This flag allows for horizontal variation  of plant density&&
+INPGRID NPLANTS CURVILINEAR 0 0 202 110 EXC 9.999000e+003
+READINP NPLANTS 1 'swan_dens.bot' 4 0 FREE
+
+&& This flag allows for horizontal variation  of plant height &&
+INPGRID NPHT CURVILINEAR 0 0 202 110 EXC 9.999000e+003
+READINP NPHT  1 'swan_hght.bot' 4 0 FREE
+
+&& This flag allows for horizontal variation  of plant diameter &&
+INPGRID NPDA CURVILINEAR 0 0 202 110 EXC 9.999000e+003
+READINP NPDA  1 'swan_diam.bot' 4 0 FREE
+
+&& This flag allows for horizontal variation  of plant thickness &&
+INPGRID NPTK CURVILINEAR 0 0 202 110 EXC 9.999000e+003
+READINP NPTK  1 'swan_thck.bot' 4 0 FREE
+
+&& iveg=1 Mendez & Losada iveg=2 Jacobsen &&
+& Vegetation parameters set here are to be consistent
+& with the ones in ROMS input file
+&VEGEtation  < [iveg] [height] [diamtr] [nstems] [drag coeff] >
+& VEGETATION 1 1.0 1.0 1 1.0
+
+&& iveg=3 VEG COAWST Mendez & Losada iveg=4 Jacobsen &&
+&VEGEtation  < [iveg] [height] [diamtr] [nstems] [drag method] [Youngs modulus] >
+&& VEGCoawst
+&VEGCoawst 4 1.0 1.0 1 1.0 1.0e+009
+
+&& BOUNDARY FORCING &&
+BOUNDPAR SHAPESPEC JONSWAP 3.3 PEAK DSPR DEGREES
+&from the north - columns 0 to 201 of the periodic grid
+BOUNDPAR2 SEGMENT IJ 0 110 201 110 VARIABLE FILE 0 'wavebc_north.txt'
+&east and west are periodic - the original A15 lateral boundaries were
+&BOUNDPAR2 SEGMENT IJ 0 110 202 110 VARIABLE FILE 0 'wavebc_north.txt'
+&BOUNDPAR3 SEGMENT IJ 202 57 202 110 VARIABLE FILE 0 'wavebc_east.txt'
+&BOUNDPAR4 SEGMENT IJ 0 57 0 110 VARIABLE FILE 0 'wavebc_west.txt'
+
+&& Output Wave Budget Terms&&
+BLOCK 'COMPGRID' NOHEADER 'output/dhsign.nc'  LAY 4 DHSIGN 1.
+BLOCK 'COMPGRID' NOHEADER 'output/propagat.nc'  LAY 4 PROPAGAT 1.
+BLOCK 'COMPGRID' NOHEADER 'output/propxy.nc'  LAY 4 PROPXY 1.
+BLOCK 'COMPGRID' NOHEADER 'output/proptheta.nc'  LAY 4 PROPTHETA 1.
+BLOCK 'COMPGRID' NOHEADER 'output/propsigma.nc'  LAY 4 PROPSIGMA 1.
+BLOCK 'COMPGRID' NOHEADER 'output/generat.nc'  LAY 4 GENERAT 1.
+BLOCK 'COMPGRID' NOHEADER 'output/genwind.nc'  LAY 4 GENWIND 1.
+BLOCK 'COMPGRID' NOHEADER 'output/redist.nc'  LAY 4 REDIST 1.
+BLOCK 'COMPGRID' NOHEADER 'output/redquad.nc'  LAY 4 REDQUAD 1.
+BLOCK 'COMPGRID' NOHEADER 'output/redtriad.nc'  LAY 4 REDTRIAD 1.
+BLOCK 'COMPGRID' NOHEADER 'output/dissip.nc'  LAY 4 DISSIP 1.
+BLOCK 'COMPGRID' NOHEADER 'output/disbot.nc'  LAY 4 DISBOT 1.
+BLOCK 'COMPGRID' NOHEADER 'output/dissurf.nc'  LAY 4 DISSURF 1.
+BLOCK 'COMPGRID' NOHEADER 'output/diswcap.nc'  LAY 4 DISWCAP 1.
+BLOCK 'COMPGRID' NOHEADER 'output/disswell.nc'  LAY 4 DISSWELL 1.
+BLOCK 'COMPGRID' NOHEADER 'output/disveg.nc'  LAY 4 DISVEG 1.
+BLOCK 'COMPGRID' NOHEADER 'output/dismud.nc'  LAY 4 DISMUD 1.
+BLOCK 'COMPGRID' NOHEADER 'output/disice.nc'  LAY 4 DISICE 1.
+BLOCK 'COMPGRID' NOHEADER 'output/radstr.nc'  LAY 4 RADSTR 1.
+
+&& Output Grid Metrics &&
+BLOCK 'COMPGRID' NOHEADER 'output/xp.nc'  LAY 4 XP 1.
+BLOCK 'COMPGRID' NOHEADER 'output/yp.nc'  LAY 4 YP 1.
+BLOCK 'COMPGRID' NOHEADER 'output/depth.nc'  LAY 4 DEPTH 1.
+BLOCK 'COMPGRID' NOHEADER 'output/frcoef.nc'  LAY 4 FRCOEFF 1.
+BLOCK 'COMPGRID' NOHEADER 'output/cddragveg.nc' LAY 4 DICD   1.
+BLOCK 'COMPGRID' NOHEADER 'output/nplants.nc'  LAY 4 NPLANTS 1.
+BLOCK 'COMPGRID' NOHEADER 'output/vel.nc'  LAY 4 VEL 1.
+
+&& Output Wave Metrics &&
+BLOCK 'COMPGRID' NOHEADER 'output/hsign.nc'  LAY 4 HSIGN 1.
+BLOCK 'COMPGRID' NOHEADER 'output/dir.nc'  LAY 4 DIR 1.
+BLOCK 'COMPGRID' NOHEADER 'output/tm01.nc'  LAY 4 TM01 1.
+BLOCK 'COMPGRID' NOHEADER 'output/wlen.nc'  LAY 4 WLEN 1.
+BLOCK 'COMPGRID' NOHEADER 'output/tmbot.nc'  LAY 4 TMBOT 1.
+BLOCK 'COMPGRID' NOHEADER 'output/ubot.nc'  LAY 4 UBOT 1.
+BLOCK 'COMPGRID' NOHEADER 'output/urms.nc'  LAY 4 URMS 1.
+
+
+&& Spec out to be used for restarts &&
+&SPECOUT 'COMPGRID' SPEC2D ABSOLUTE 'output/spec.sp2' OUTPUT 20000101.000000 24 HR
+&SPECOUT 'COMPGRID' SPEC2D ABSolute 'output/spec2d_1hr.sp2' OUTPUT 20010101.010000 60 MIN
+&SPECOUT 'COMPGRID' SPEC2D ABSolute 'output/spec2d_2hr.txt' OUTPUT 20010101.020000 10 DAY
+&SPECOUT 'COMPGRID' SPEC2D ABSolute 'output/spec2d_3hr.txt' OUTPUT 20010101.030000 10 DAY
+
+
+
+& Restart name **********************************
+&RESTART 'output/swan_rst.dat' FREE 1 HR
+
+& PHYSICS  **************************************
+GEN3
+FRICTION MADSEN 0.3
+OFF QUAD
+BREAKING CON 1.0 0.73
+PROP BSBT
+TRIAD
+
+COMPUTE NONSTATIONARY 20000101.000000 120 SEC 20000102.000000
+&HOTFILE 'output/swan_hotfile.dat' FREE
+RESTART 'output/swan_rst.dat' FREE 1 HR
+
+STOP

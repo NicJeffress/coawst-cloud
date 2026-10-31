@@ -1,6 +1,6 @@
 """Generate the SWAN patches of the series against COAWST commit 26e6fb7.
 
-Usage: python3 -I make_swan_patches.py <COAWST tree>/SWAN/src <build/coawst/patches>
+Usage: python3 -I make_swan_patches.py <COAWST tree>/SWAN/src <build/coawst/patches> [--without NAME[,NAME]]
 
 Reads the unpatched SWAN sources and writes the SWAN patches listed in GROUPS
 (at the end) into the patch folder, one per group. Each change_* function below
@@ -18,6 +18,11 @@ import sys
 from pathlib import Path
 
 src, out = Path(sys.argv[1]), Path(sys.argv[2])   # SWAN/src, patch folder
+# --without NAME[,NAME...]: leave those changes out (for tests that compare a
+# build with and without one change, e.g. --without periodic_coupled_stokes)
+WITHOUT = set()
+if "--without" in sys.argv:
+    WITHOUT = set(sys.argv[sys.argv.index("--without") + 1].split(","))
 
 
 def load(name):
@@ -1581,6 +1586,10 @@ if __name__ == "__main__":
     outdir = out
     for patch, items in GROUPS:
         before = {k: list(v) for k, v in files.items()}
+        unknown = WITHOUT - {c for _, cs in GROUPS for c in cs}
+        if unknown:
+            sys.exit(f"--without: no such change {sorted(unknown)}")
+        items = [it for it in items if it not in WITHOUT]
         for it in items:
             globals()["change_" + it]()
         path = outdir / patch

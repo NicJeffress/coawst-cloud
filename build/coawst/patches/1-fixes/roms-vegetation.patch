@@ -1,0 +1,136 @@
+diff -ruN a/ROMS/Nonlinear/Vegetation/vegetation_drag.F b/ROMS/Nonlinear/Vegetation/vegetation_drag.F
+--- a/ROMS/Nonlinear/Vegetation/vegetation_drag.F
++++ b/ROMS/Nonlinear/Vegetation/vegetation_drag.F
+@@ -170,7 +170,10 @@
+       real(r8) :: sma, buoy, Umag, Ca, cflex
+       real(r8) :: Lveg_loc, plant_height_eff
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS,0:N(ng)) :: dab
+-      real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: wrk
++!  wrk is exchanged with exchange_r2d_tile/mp_exchange2d, which index it
++!  with the halo bounds LBi:UBi,LBj:UBj, so it must have exactly those
++!  bounds (with IminS:ImaxS the exchange wrote past the array end).
++      real(r8), dimension(LBi:UBi,LBj:UBj) :: wrk
+ !
+ # include "set_bounds.h"
+ !
+diff -ruN a/ROMS/Nonlinear/Vegetation/vegetation_turb.F b/ROMS/Nonlinear/Vegetation/vegetation_turb.F
+--- a/ROMS/Nonlinear/Vegetation/vegetation_turb.F
++++ b/ROMS/Nonlinear/Vegetation/vegetation_turb.F
+@@ -28,6 +28,7 @@
+ !
+       USE mod_param
+       USE mod_grid
++      USE mod_iounits, ONLY : stdout
+       USE mod_mixing
+       USE mod_ocean
+       USE mod_scalars
+@@ -63,6 +64,7 @@
+      &                           LBi, UBi, LBj, UBj,                    &
+      &                           IminS, ImaxS, JminS, JmaxS,            &
+      &                           nstp(ng), nnew(ng),                    &
++     &                           GRID(ng) % Hz,                         &
+      &                           OCEAN(ng) % u,                         &
+      &                           OCEAN(ng) % v,                         &
+      &                           VEG(ng) % ru_loc_veg,                  &
+@@ -87,6 +89,7 @@
+      &                                 LBi, UBi, LBj, UBj,              &
+      &                                 IminS, ImaxS, JminS, JmaxS,      &
+      &                                 nstp, nnew,                      &
++     &                                 Hz,                              &
+      &                                 u, v,                            &
+      &                                 ru_loc_veg, rv_loc_veg,          &
+      &                                 plant,                           &
+@@ -105,6 +108,7 @@
+       integer, intent(in) :: nstp, nnew
+ !
+ # ifdef ASSUMED_SHAPE
++      real(r8), intent(in) :: Hz(LBi:,LBj:,:)
+       real(r8), intent(in) :: u(LBi:,LBj:,:,:)
+       real(r8), intent(in) :: v(LBi:,LBj:,:,:)
+       real(r8), intent(in) :: ru_loc_veg(LBi:,LBj:,:,:)
+@@ -118,6 +122,7 @@
+       real(r8), intent(inout) :: gls_veg(LBi:,LBj:,0:)
+       real(r8), intent(inout) :: tke_veg(LBi:,LBj:,0:)
+ # else
++      real(r8), intent(in) :: Hz(LBi:UBi,LBj:UBj,N(ng))
+       real(r8), intent(in) :: u(LBi:UBi,LBj:UBj,N(ng),nstp)
+       real(r8), intent(in) :: v(LBi:UBi,LBj:UBj,N(ng),nstp)
+       real(r8), intent(in) :: ru_loc_veg(LBi:UBi,LBj:UBj,N(ng),NVEG)
+@@ -149,13 +154,48 @@
+       real(r8) :: wrk, cff1, cff2, cff3, dissip, inverse_dissip
+       real(r8) :: solid, L, eqvegT
+       real(r8) :: taufree, tauveg, taueff
+-      real(r8) :: tke_loc_veg, gls_loc_veg
++      real(r8) :: tke_loc_veg, gls_loc_veg, Pveg
+ !
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: vegu
+       real(r8), dimension(IminS:ImaxS,JminS:JmaxS) :: vegv
+ 
+ # include "set_bounds.h"
+ !
++!-----------------------------------------------------------------------
++!  Plants covering the whole bed (roms-vegetation.patch). The eddy size
++!  between the plants, L = cl_veg*SQRT((1-solid)/density) below, with solid =
++!  diameter*thickness*density (the plants' share of the bed), is zero
++!  for solid >= 1; tau_veg and tau_eff are then zero and the dissipation
++!  source gls_c2*P_veg/tau_eff infinite (division by zero). Stop with a
++!  message instead. ROMS takes a plant's footprint as diameter*thickness
++!  (a flat blade): for cylinders use thickness = pi/4*diameter.
++!-----------------------------------------------------------------------
++!
++      DO iveg=1,NVEG
++        DO j=Jstr,Jend
++          DO i=Istr,Iend
++            solid=plant(i,j,iveg,isDiam)*plant(i,j,iveg,isThck)*         &
++     &            plant(i,j,iveg,isDens)
++            IF (solid.ge.1.0_r8) THEN
++              WRITE (stdout,10) iveg, i, j, solid,                      &
++     &                          plant(i,j,iveg,isDiam),                 &
++     &                          plant(i,j,iveg,isThck),                 &
++     &                          plant(i,j,iveg,isDens)
++              FLUSH (stdout)
++              ERROR STOP 'VEGETATION_TURB: plants cover the whole bed'
++            END IF
++          END DO
++        END DO
++      END DO
++  10  FORMAT (/,' VEGETATION_TURB - plants cover the whole bed: ',       &
++     &        'vegetation type ',i0,', rho point (',i0,',',i0,'):',/,   &
++     &        19x,'diameter x thickness x density = ',1p,e10.3,         &
++     &        ' >= 1',/,19x,'(diameter ',e10.3,' m, thickness ',e10.3,  &
++     &        ' m, density ',e10.3,' m-2).',/,19x,                      &
++     &        'The VEG_TURB length scale between the plants is zero.',  &
++     &        /,19x,'For cylinders use thickness = pi/4 x diameter, ',  &
++     &        'and keep pi/4 x diameter^2 x density below 1.')
++!
+ !=======================================================================
+ !  Compute vegetation turbulence ontributions to vertical mixing.
+ !=======================================================================
+@@ -234,7 +274,14 @@
+ !
+ ! Dissipation time-scale of eddies in between the plants
+ !
+-              cff2=MIN( (1.0_r8/(ck**2.0_r8*tke_loc_veg)), max_eps )
++!  tke_loc_veg is the plant work integrated over the w-cell (m3/s3), as
++!  the Hz-weighted tke and gls updates in gls_corstep need it, but tau_veg
++!  needs the work per unit mass (m2/s3). roms-vegetation.patch: divide by the
++!  w-cell thickness used there (before, tau_veg was Hz**(-1/3) times the
++!  published value).
++!
++              Pveg=tke_loc_veg/(0.5_r8*(Hz(i,j,k)+Hz(i,j,k+1)))
++              cff2=MIN( (1.0_r8/(ck**2.0_r8*Pveg)), max_eps )
+               tauveg=(L**2.0_r8*cff2)**one_third
+ !              tauveg=(L**2.0_r8/(ck**2.0_r8*tke_loc_veg))**one_third
+ !
+diff -ruN a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -2269,7 +2269,7 @@
+      END DO
+      DO i=Istr,Iend
+        DO j=JstrV,Jend
+-         cff3=2.0_r8/(Drhs(i-1,j)+Drhs(i,j))
++         cff3=2.0_r8/(Drhs(i,j-1)+Drhs(i,j))
+          fac=step2d_vveg(i,j)*cff3*om_v(i,j)*on_v(i,j)
+          rhs_vbar(i,j)=rhs_vbar(i,j)-fac
+ # ifdef DIAGNOSTICS_UV

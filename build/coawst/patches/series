@@ -11,6 +11,7 @@
 
 # 1. Fixes
 1-fixes/roms-sed-morph-tiling.patch
+1-fixes/roms-vegetation.patch
 1-fixes/roms-wec-stokes-fixes.patch
 1-fixes/roms-limit-bstress.patch
 1-fixes/swan-nc-crash.patch
