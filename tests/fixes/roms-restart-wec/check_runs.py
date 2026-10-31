@@ -11,6 +11,10 @@ restarted run (part2) with the uninterrupted one (straight): ROMS history
 PASS if the restarted run differs before the patch by more than 1e-6 m/s, and
 after it by less than 1e-8 m/s (round-off: the history is written in single
 precision, so what is left are flips of the last bit, 2e-9 m/s at 0.03 m/s).
+OUTDIR/records-after (restart_record): Reef_Ideal_A15 after the patch writing
+a restart record every 10 min for 40 min must finish, and the variables the
+patch adds to the restart file (Huon, Hvom, zetat) must have the record
+dimension ocean_time, with all four records.
 """
 import sys
 from pathlib import Path
@@ -58,5 +62,20 @@ for variant in ("veg", "river", "noriver"):
     ok &= good
     print(f"{variant:7s} restarted vs straight: before {res.get('before', float('nan')):.1e}, "
           f"after {res.get('after', float('nan')):.1e} m/s  {'ok' if good else 'BAD'}")
+rec = out / "records-after"
+if rec.exists():
+    info = (rec / "image_info.txt").read_text() if (rec / "image_info.txt").exists() else ""
+    try:
+        with Dataset(rec / "output/ocean_rst.nc") as r:
+            nrec = len(r["ocean_time"])
+            dims = {v: r[v].dimensions for v in ("Huon", "Hvom", "zetat") if v in r.variables}
+    except (FileNotFoundError, OSError) as e:
+        nrec, dims = 0, {}
+        print(f"records: no restart file ({e})")
+    good = ("exit 0" in info and nrec >= 4 and len(dims) == 3
+            and all(d[0] == "ocean_time" for d in dims.values()))
+    ok &= good
+    print(f"records restart file: {nrec} records, finished {'exit 0' in info}; "
+          + ", ".join(f"{v} {d}" for v, d in dims.items()) + f"  {'ok' if good else 'BAD'}")
 print("ALL OK" if ok else "SOME CHECKS BAD")
 sys.exit(0 if ok else 1)

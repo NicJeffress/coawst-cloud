@@ -17,6 +17,8 @@
 #   files; part2 RST -> TOTAL from them. History and SWAN output every 10 min.
 # A third variant, noriver, runs the river images with the river off (base
 # A15: periodic in x, GLS), which tests turbulence_halo on its own.
+# records-after (restart_record): the after image writing a restart record
+# every 10 min for 40 min into one file must finish.
 # Check (check_runs.py): part2 vs straight at TOTAL. Before the patch the
 # restarted run drifts away; after it, every variant must agree to round-off.
 # STAGES (default "build run check"): with STAGES=build the six runs can be
@@ -73,6 +75,10 @@ if has run; then
             bash /work/restart_inside.sh Reef_Ideal_A15 "$TOTAL" "$RST" $TI $TJ $NWAV > "$d/runner.log" 2>&1 || true
         echo "   noriver-$side: $(grep -E '^(straight|part1|part2):' "$d/runner.log" | paste -sd' ')"
     done
+    # records: a restart record every 10 min (DT 6 s) for 40 min, written into one file
+    rm -rf "$OUT/records-after"
+    OCEANSED='s/^( *NRST *== *)[0-9]+/\1100/' "$tools/run_case.sh" coawst-test:rst-river-after "$OUT" \
+        records-after Reef_Ideal_A15 $TI $TJ $NWAV 40 || true
 fi
 if has check; then
     echo "== checks"

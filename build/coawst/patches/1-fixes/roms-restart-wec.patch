@@ -235,7 +235,7 @@ diff -ruN a/ROMS/Utility/def_rst.F b/ROMS/Utility/def_rst.F
 +        Vinfo(22)='coordinates'
 +        Aval(5)=REAL(Iinfo(1,idFsur,ng),r8)
 +        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idWztt),    &
-+     &                 NF_FRST, nvd3, t2dgrd, Aval, Vinfo, ncname)
++     &                 NF_FRST, nvd3, sr2dgrd, Aval, Vinfo, ncname)
 +        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
 +# endif
 +# if defined WEC && defined SOLVE3D
@@ -257,7 +257,7 @@ diff -ruN a/ROMS/Utility/def_rst.F b/ROMS/Utility/def_rst.F
 +        Vinfo(22)='coordinates'
 +        Aval(5)=REAL(Iinfo(1,idHUav,ng),r8)
 +        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idHUav),    &
-+     &                 NF_FRST, nvd4, u3dgrd, Aval, Vinfo, ncname)
++     &                 NF_FRST, nvd4, su3dgrd, Aval, Vinfo, ncname)
 +        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
 +!
 +!  Define v-volume flux of the last step start: the first step after a
@@ -277,7 +277,7 @@ diff -ruN a/ROMS/Utility/def_rst.F b/ROMS/Utility/def_rst.F
 +        Vinfo(22)='coordinates'
 +        Aval(5)=REAL(Iinfo(1,idHVav,ng),r8)
 +        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idHVav),    &
-+     &                 NF_FRST, nvd4, v3dgrd, Aval, Vinfo, ncname)
++     &                 NF_FRST, nvd4, sv3dgrd, Aval, Vinfo, ncname)
 +        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
 +# endif
  #endif

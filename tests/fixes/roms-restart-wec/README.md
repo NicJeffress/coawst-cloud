@@ -34,7 +34,10 @@ the patch, on three variants that exercise different parts of the fix.
    - `part1`: 0 -> 30 min, writing ROMS's restart record (`PERFECT_RESTART`)
      and SWAN's binary restart files at 30 min;
    - `part2`: 30 -> 60 min, starting from part1's files.
-   History and SWAN output every 10 min.
+   History and SWAN output every 10 min. And `records-after`: the patched
+   river image (river off) for 40 min, writing a restart record every 10 min
+   into one file (`restart_record`: the first version of the patch stopped
+   at the third record).
 3. **Checks** (`check_runs.py`): the largest difference between part2 and
    straight at 60 min in `ubar`, `vbar`, `u`, `v`, `zeta`, `AKv`, `tke` and
    SWAN's Hs. PASS needs, for every variant, a difference above 1e-6 m/s
@@ -42,6 +45,8 @@ the patch, on three variants that exercise different parts of the fix.
    single precision, so "round-off" here means flips of the last bit of a
    stored value (1.9e-9 m/s for a current of 0.03 m/s, 2.4e-7 m for a wave
    height of 1.2 m): the double-precision states agree to their last bits.
+   `records`: the run finished, with 4 records, and `zetat`, `Huon`, `Hvom`
+   have the record dimension `ocean_time`.
 
 ## Running it
 
@@ -67,13 +72,14 @@ means SWAN's output is bit-identical.
 
 ## Last result
 
-2026-10-31, runs on Cloud Batch: PASS (after adding `turbulence_halo`).
+2026-10-31, runs on Cloud Batch: PASS (rerun after `restart_record`).
 
 | Variant | before | after |
 |---|---|---|
 | veg | 2.7e-5 m/s | 1.2e-10 m/s, SWAN bit-identical |
-| river | 2.1e-2 m/s | 1.9e-9 m/s (one float32 step at one point), SWAN Hs last bit |
-| noriver | 2.1e-2 m/s | 5.8e-11 m/s, SWAN bit-identical |
+| river | 2.1e-2 m/s | 2.3e-10 m/s, SWAN Hs last bit |
+| noriver | 2.1e-2 m/s | 4.7e-10 m/s, SWAN bit-identical |
+| records | | finished, 4 records, new variables on `ocean_time` |
 
-Details, and how the last piece (`turbulence_halo`) was traced, in the patch
-document.
+Details, how `turbulence_halo` was traced, and an open residual on the
+circular-island O-grid, in the patch document.

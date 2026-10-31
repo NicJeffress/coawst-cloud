@@ -32,6 +32,7 @@ restarted coupled run now follows the uninterrupted one to round-off.
 | `stokes_read_back` | `u_stokes`, `v_stokes` were written but never read | (completeness; they are recomputed before use) |
 | `unmasked_fields` | river fluxes, GLS turbulence fields and bed properties were written with land points replaced by fill values | river face fluxes sit on land/water faces, and GLS uses values next to land |
 | `turbulence_halo` | the ghost points of the turbulence fields `tke`, `gls` (periodic and between tiles) were not filled after reading | the first step's horizontal advection of `tke` and `gls` reads them |
+| `restart_record` | (a defect of this patch's first version) `zetat`, `Huon`, `Hvom` were defined without the restart file's record dimension | a run writing a third restart record into one file stopped with a NetCDF error |
 
 ## Background: what a perfect restart needs
 
@@ -194,6 +195,44 @@ bit-identically without this change. There the `mp_exchange4d` call is a
 safeguard, and the change does no harm. Runs that are not periodic are not
 affected.
 
+## restart_record: the new variables lacked the record dimension
+
+Found 2026-10-31 by a test case that writes a restart record every 10 min
+(`tests/cases/Circle_Island`): ROMS stopped at its third restart record with
+
+```
+Found Error: -40  Line: 454      Source: ROMS/Utility/wrt_rst.F, wrt_rst_nf90
+WRT_RST_NF90 - error while writing variable: Huon
+               into restart NetCDF file for time record: 3
+```
+
+(NetCDF error -40: index out of range). The first version of this patch
+defined `zetat`, `Huon` and `Hvom` with ROMS's dimension lists `t2dgrd`,
+`u3dgrd`, `v3dgrd` and 3 or 4 dimensions. Under `PERFECT_RESTART` those lists
+hold one more entry, the time level (`three` or `two`), before the record
+dimension, so the first 3 or 4 entries left the record dimension out: the
+variables came out as (`two`, `s_rho`, `eta_u`, `xi_u`), and the record
+number was written into the size-2 `two` dimension. Records 1 and 2 fitted;
+record 3 did not. Runs that write one or two records per file (every test
+until then, and segmented runs, which write one restart record per segment)
+never met it. The variables are 2-D or 3-D fields with a single time level,
+so the right lists are the plain ones with the record dimension last:
+
+```fortran
+!  before (first version of this patch)
+     &                 NF_FRST, nvd3, t2dgrd, Aval, Vinfo, ncname)    ! zetat
+     &                 NF_FRST, nvd4, u3dgrd, Aval, Vinfo, ncname)    ! Huon
+     &                 NF_FRST, nvd4, v3dgrd, Aval, Vinfo, ncname)    ! Hvom
+!  after
+     &                 NF_FRST, nvd3, sr2dgrd, Aval, Vinfo, ncname)
+     &                 NF_FRST, nvd4, su3dgrd, Aval, Vinfo, ncname)
+     &                 NF_FRST, nvd4, sv3dgrd, Aval, Vinfo, ncname)
+```
+
+Reading is unchanged (`nf_fread2d`/`nf_fread3d` take the record as the last
+index either way). The test now includes a run that writes four restart
+records into one file (below).
+
 ## What is unchanged
 
 All changes are inside `PERFECT_RESTART` (with `WEC` or `WEC_VF`, except
@@ -219,19 +258,27 @@ compares the restarted run with the uninterrupted one at 60 min:
 
 All builds include the fixes (so SWAN's restart is exact:
 `swan-exact-restart`) and the two improvements A15's SWAN setup needs.
+A third variant, **noriver**, runs the river images with the river off (base
+A15). And **records** (`restart_record`): the patched river image, without
+the river, writing a restart record every 10 min for 40 min into one file,
+must finish with `zetat`, `Huon`, `Hvom` on the record dimension.
 
 ## Engine test results
 
-Run 2026-10-31; images built on the control VM, each variant's three runs on
-one Cloud Batch c2d-standard-8 Spot VM (ROMS 1x6 + 2 SWAN; straight about
-240-280 s, each part about 120-140 s). Restart at 30 min, compared at 60 min
-(largest difference, restarted minus straight). PASS.
+Run again 2026-10-31 after `restart_record`; images built on the control VM,
+each variant's three runs on one Cloud Batch c2d-standard-8 Spot VM (ROMS
+1x6 + 2 SWAN). Restart at 30 min, compared at 60 min (largest difference,
+restarted minus straight). PASS.
 
 | Variant | Before the patch | After the patch |
 |---|---|---|
-| `veg` (waves, canopy, GLS) | currents 2.7e-5 m/s, AKv 2.3e-5, SWAN Hs 6.9e-6 m | currents **1.2e-10 m/s**, SWAN Hs **bit-identical** |
-| `river` (waves, GLS, 3 face sources) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.7e-3, SWAN Hs 9.5e-4 m | currents **1.9e-9 m/s**, SWAN Hs 2.4e-7 m (last bit) |
-| `noriver` (base A15: waves, GLS) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.6e-3, SWAN Hs 7.9e-4 m | currents **5.8e-11 m/s**, SWAN Hs **bit-identical** |
+| `veg` (waves, canopy, GLS) | currents 2.7e-5 m/s, AKv 2.3e-5, SWAN Hs 9.8e-6 m | currents **1.2e-10 m/s**, SWAN Hs **bit-identical** |
+| `river` (waves, GLS, 3 face sources) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.7e-3, SWAN Hs 9.5e-4 m | currents **2.3e-10 m/s**, SWAN Hs 7.5e-9 m (last bit) |
+| `noriver` (base A15: waves, GLS) | currents **2.1e-2 m/s**, AKv 4.0e-2, tke 2.6e-3, SWAN Hs 7.9e-4 m | currents **4.7e-10 m/s**, SWAN Hs **bit-identical** |
+| `records` (4 restart records in one file) | | finished; `zetat`, `Huon`, `Hvom` on `ocean_time`, 4 records |
+
+(The first run with the same changes but before `restart_record` gave the
+same picture: after the patch 1.2e-10, 1.9e-9 and 5.8e-11 m/s.)
 
 **Without the patch the base A15 case restarts 2 cm/s off**, river or not
 (2.1e-2 m/s in both). Its fast flow over the bare reef crest amplifies the
@@ -243,9 +290,8 @@ largest error.
 **With the patch all three restart to round-off.** The history files are
 written in single precision, so the differences left are flips of the last
 bit of a stored value: the river run's 1.9e-9 m/s is at a single point where
-u = -0.0301691350 against -0.0301691368 (one float32 step there is 1.86e-9),
-and its Hs differs by one float32 step (2.4e-7 m at 1.2 m) at a few hundred
-points. The double-precision states agree to their last bits.
+u = -0.0301691350 against -0.0301691368 in the first run (one float32 step
+there is 1.86e-9). The double-precision states agree to their last bits.
 
 Before `turbulence_halo` was added, the base A15 case kept a residual of
 1.8e-7 m/s (2.4e-7 with the river): the restored state was bit-identical, and
@@ -269,6 +315,19 @@ And on 2026-10-29, tracing rivers on the coast of an interior land peninsula
 in the stratified A15 variant: 1.6e-3 m/s and 0.03 in salinity off 10 min after
 the restart before the masked-point changes, 3.7e-9 m/s (round-off) after all
 three of them (fluxes, GLS fields, bed properties).
+
+## Open: a residual on the circular-island O-grid
+
+On `tests/cases/Circle_Island` (closed O-grid, waves breaking all round a
+reef crest; test of `swan-closed-ring`) a restart is not exact: 4.5e-5 of the
+field sizes at 60 min (up to 4e-5 m/s in currents). Everything the history
+holds is identical at the restart time (state, SWAN's fields, Stokes drift,
+WEC stresses), and the restarted run departs in its first step, in the top
+layer over the crest (3.7e-3 m/s in u, v after one 4 s step). It is not the
+tiling (1x6 and 6x1 both show it; A15 at 6x1 restarts exactly), not
+`CURVGRID` (a build without it shows it too), and not the restart-time
+exchange of water level and bottom roughness `ZO` (A15 has the same
+differences there and restarts exactly). Still to be traced.
 
 ## Who is affected
 
