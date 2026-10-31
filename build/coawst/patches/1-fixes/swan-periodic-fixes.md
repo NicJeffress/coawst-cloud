@@ -6,8 +6,8 @@
 | **Changes results?** | yes, for SWAN with `COORDINATES ... REPEATING`: output on the computational grid (`periodic_compgrid_frame`), runs with several SWAN processes (`periodic_y_strips`, crashed before), coupled periodic runs with spectral Stokes drift (`periodic_coupled_stokes`); non-periodic runs are unchanged bit for bit |
 | **Default** | on |
 | **Files** | `swanpre1.ftn` (`periodic_compgrid_frame`); `swanparll.ftn`, `swancom1.ftn`, `swanmain.ftn`, `swanpre3.ftn`, `waves_coupler.ftn` (`periodic_y_strips`); `waves_coupler.ftn` (`periodic_coupled_stokes`) |
-| **Evidence** | standalone periodic SWAN: COMPGRID output complete and on the grid points, 4 processes = 1 process (crashed before); source check of `periodic_y_strips` and `periodic_coupled_stokes` (results below) |
-| **Test** | [`tests/fixes/swan-periodic-fixes/run.sh`](../../../../tests/fixes/swan-periodic-fixes/run.sh) |
+| **Evidence** | standalone periodic SWAN: COMPGRID output on the grid points, 4 processes = 1 process (garbage before); coupled periodic A15: Stokes drift 1.44 m/s and blow-up at 35 min before, 0.13 m/s and a clean hour after; source check of `periodic_y_strips` and `periodic_coupled_stokes` (results below) |
+| **Test** | [`tests/fixes/swan-periodic-fixes/run.sh`](../../../../tests/fixes/swan-periodic-fixes/run.sh) and [`run_a15_coupled.sh`](../../../../tests/fixes/swan-periodic-fixes/run_a15_coupled.sh) |
 | **Upstream** | not reported (SWAN's manual calls `REPEATING` "only for academic cases") |
 
 ## Background
@@ -74,10 +74,16 @@ runs use the same indices as before.
    (`periodic_y_strips`); `COMPGRID` output equals output on a frame on the grid points,
    none missing (`periodic_compgrid_frame`).
 
-`periodic_coupled_stokes` shows only in a coupled periodic run. A15, where it was found, has a
-curvilinear SWAN grid, and periodic curvilinear grids come with
-`2-improvements/swan-periodic-curvilinear.patch`; the coupled run is part of
-that patch's test.
+3. **Coupled run on the idealized reef** (`run_a15_coupled.sh`,
+   `periodic_coupled_stokes`): `tests/cases/Reef_Ideal_A15`, ROMS and SWAN both
+   periodic, spectral Stokes drift, 1 h. A15's SWAN grid is curvilinear, and
+   periodic curvilinear grids are an improvement later in the series
+   (`2-improvements/swan-periodic-curvilinear`), as is the NetCDF output the
+   case asks for (`2-improvements/swan-netcdf-output`); both builds borrow
+   them. The "before" build has every SWAN change except
+   `periodic_coupled_stokes` (`tests/tools/variant_patches.sh` regenerates the
+   SWAN patches without it), the "after" build has all of them, so the only
+   difference between the two is this change.
 
 ## Engine test results
 
@@ -109,6 +115,35 @@ the grid points, being interpolated between them; no point was missing in
 this run. In the earlier tests (before the output fixes) about half were
 missing; that part was most likely the uninitialised output flags of
 `swan-output-fixes` (`output_obstacle_flags`), which this series fixes first.
+
+**3. Coupled run on A15** (2026-10-31; "before" on the control VM, ROMS 1x2 +
+2 SWAN; "after" on a Cloud Batch c2d-standard-8 VM, ROMS 1x6 + 2 SWAN). PASS:
+
+```
+before: blow-up yes, records at 0, 10, 20, 30 min,
+        max |Stokes drift| per record: 0.000, 0.163, 0.765, 1.442 m/s
+after : blow-up no, records at 0, 10, 20, 30, 40, 50, 60 min,
+        max |Stokes drift| per record: 0.000, 0.040, 0.091, 0.115, 0.128, 0.129, 0.130 m/s
+```
+
+Without the change, ROMS's largest speed grew at the reef crest next to the
+pass (i = 69, rows 32-34: 3.4, 7.0, 11.6, then 45.7 m/s in the last steps) and
+ROMS stopped at 35 min 12 s (`Blowing-up ... REASON: MaxSpeed = Infinity`),
+as in the first coupled periodic A15 run of 2026-10-21 (Stokes drift
+1.4 m/s, blow-up after 35 min). Row j of the spectra had landed j - 1 columns
+to the side: the spectra of the deep pass, where the waves are large, were
+put onto the shallow crest, whose depth turns them into a huge Stokes drift.
+With the change the drift stays at about 0.13 m/s, the size it has in a
+non-periodic run.
+
+![Stokes drift before and after periodic_coupled_stokes](../../../../docs/figures/swan-periodic-fixes-a15-coupled.png)
+
+*Left: the largest Stokes drift in the domain against time. Middle and right:
+depth-mean Stokes drift speed at 30 min, before and after the fix, same colour
+scale; the white line is the 1 m depth contour, i.e. the reef crest, with the
+pass at x = 0. Before the fix a hot spot of false Stokes drift sits on the
+crest just west of the pass. Made by
+`tests/fixes/swan-periodic-fixes/plot_a15_coupled.py`.*
 
 ## Earlier results (2026-10-21, same changes, more cases)
 
