@@ -10,7 +10,7 @@
 | **Test** | [`tests/fixes/swan-halo-hang/run.sh`](../../../../tests/fixes/swan-halo-hang/run.sh) |
 | **Upstream** | a SWAN 41.51 bug; not reported |
 
-## Summary
+## In short
 
 When SWAN runs on several MPI processes, each holds a strip of the grid and,
 after each sweep, sends its edge row ("halo") to its neighbours and receives
@@ -32,6 +32,62 @@ are up to 1024 points run fine; it was found on an island ring grid with
 Diagnosed with gdb on the stuck processes (all in `SWSENDNB` called from
 `SWEXCHG`) and confirmed by running the unpatched code with OpenMPI's eager
 limit raised (`OMPI_MCA_btl_vader_eager_limit=65536`), which made it run.
+
+## The code, before and after
+
+Stock `SWEXCHG` (the wavefront version, lines prefixed `!WFR`), simplified:
+
+```fortran
+!     --- for all neighbouring subdomains do
+      DO INB = 1, NNEIGH
+!        --- store data to be sent in array WORK
+         DO K = 1, NOVLU
+            WORK(K) = FIELD(KGRPNT(IBLKAD(ISTART+K)))
+         END DO
+!        --- send array WORK                       (blocking send)
+         CALL SWSENDNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+      END DO
+!     --- for all neighbouring subdomains do
+      DO INB = 1, NNEIGH
+!        --- receive next array and store in WORK  (only reached once all sends returned)
+         CALL SWRECVNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+         ...
+      END DO
+```
+
+Every process first sends to all its neighbours and only then receives. A
+blocking send of a message above the eager limit returns only when the
+neighbour has started the matching receive, which it never does, because it
+is itself still sending.
+
+Patched, simplified:
+
+```fortran
+      ALLOCATE (WRCV(MAX(MXC,MYC),NNEIGH), WSND(MAX(MXC,MYC),NNEIGH))
+      ALLOCATE (IREQ(2*NNEIGH))
+      DO INB = 1, NNEIGH                     ! post every receive first
+         CALL MPI_IRECV ( WRCV(1,INB), NOVLU, SWREAL, IDOM-1, ITAG, ..., IREQ(INB), IERR )
+      END DO
+      DO INB = 1, NNEIGH                     ! then every send
+         DO K = 1, NOVLU
+            WSND(K,INB) = FIELD(KGRPNT(IBLKAD(ISTART+K)))
+         END DO
+         CALL MPI_ISEND ( WSND(1,INB), NOVLU, SWREAL, IDOM-1, ITAG, ..., IREQ(NNEIGH+INB), IERR )
+      END DO
+      CALL MPI_WAITALL ( 2*NNEIGH, IREQ, MPI_STATUSES_IGNORE, IERR )
+      DO INB = 1, NNEIGH                     ! unpack, as before
+         ...
+            FIELD(KGRPNT(IBLKAD(ISTART+NOVLU+K))) = WRCV(K,INB)
+      END DO
+      DEALLOCATE (WRCV, WSND, IREQ)
+```
+
+`MPI_IRECV` and `MPI_ISEND` only register the transfer and return at once;
+`MPI_WAITALL` waits until all of them are complete. Since every receive is
+posted before any process waits, MPI can always match each send with its
+receive, whatever the message size. Each neighbour gets its own send and
+receive buffer, because the data must stay untouched until the transfer is
+done.
 
 ## The fix
 

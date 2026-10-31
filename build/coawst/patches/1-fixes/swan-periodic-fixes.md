@@ -10,6 +10,19 @@
 | **Test** | [`tests/fixes/swan-periodic-fixes/run.sh`](../../../../tests/fixes/swan-periodic-fixes/run.sh) and [`run_a15_coupled.sh`](../../../../tests/fixes/swan-periodic-fixes/run_a15_coupled.sh) |
 | **Upstream** | not reported (SWAN's manual calls `REPEATING` "only for academic cases") |
 
+## In short
+
+SWAN can treat its grid as periodic in x (`COORDINATES ... REPEATING`), which
+is what an idealized, alongshore-uniform coast needs and what matches ROMS's
+own periodic option. In COAWST v3.9 that worked only in the simplest setting.
+Three fixes:
+
+| Change | What was wrong | Consequence |
+|---|---|---|
+| `periodic_compgrid_frame` | output on the computational grid was spread over one mesh too many | output interpolated between grid points (0.25 m off in the test); the coupler uses the same frame |
+| `periodic_y_strips` | with several processes SWAN cut long grids into x-strips, whose exchange never wraps around the seam | crash, or garbage (Hs below 0.02 m everywhere) |
+| `periodic_coupled_stokes` | in coupled runs the spectral Stokes fields reached ROMS shifted by one column per row | false Stokes drift of 1.4 m/s on the reef crest; ROMS blew up after 35 min |
+
 ## Background
 
 `COORDINATES CARTESIAN REPEATING` makes SWAN's grid periodic in x: waves

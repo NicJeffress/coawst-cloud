@@ -10,7 +10,26 @@
 | **Test** | [`tests/fixes/swan-vegetation-fixes/run.sh`](../../../../tests/fixes/swan-vegetation-fixes/run.sh) |
 | **Upstream** | same code in COAWST v3.8.1 and `main`; not reported (COAWST#211, odd results with `VEG_SWAN_COUPLING`, may be related to `plant_input_grids`) |
 
+## In short
+
+SWAN can dissipate wave energy by vegetation. COAWST added its own routine
+for it (`VEGETATION 3`, `SVEG_COAWST`), which takes the plant density,
+height, diameter and thickness at every point from ROMS, so that waves and
+currents see the same plants. In COAWST v3.9 that routine could not run
+correctly at all, and SWAN's own spatially varying plant input was read from
+the wrong places:
+
+| Change | What was wrong | Consequence |
+|---|---|---|
+| `veg3_young_modulus` | `VEGETATION 3` read the plants' stiffness from an array that was never allocated | crash, or garbage stiffness, at the start |
+| `veg3_flexible_plants` | two formula errors made every plant behave as rigid | flexible plants (seagrass, marsh) never bent |
+| `plant_input_grids` | plant height, diameter, thickness were interpolated on three unrelated input grids | garbage plant properties or a start-up crash (standalone SWAN, or coupled without plant coupling) |
+| `veg3_emergent_cd` | plants reaching the surface got a fixed Cd of 1.95, and plants exactly as tall as the water had no drag at all | wave dissipation over emergent canopies nearly doubled, and inconsistent with ROMS |
+| `dicd_output` | the drag coefficient output wrote another quantity's slot | `DICD` output always zero |
+
 ## Background: SWAN's vegetation options in COAWST v3.9
+
+
 
 `VEGETATION iveg height diameter nstems drag` selects the vegetation model:
 
