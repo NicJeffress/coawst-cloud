@@ -1,0 +1,336 @@
+--- a/SWAN/src/swancom1.ftn
++++ b/SWAN/src/swancom1.ftn
+@@ -1892,7 +1892,7 @@
+ !WFR!                                                                         40.30
+ !WFR! ======================================================================  40.30
+ !WFR
+-!WFR            IF ( MXCGL.GT.MYCGL .OR. .NOT.PARLL ) THEN                    40.30
++!WFR            IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) .OR. .NOT.PARLL ) THEN
+ !WFR               JS   =  IY1                                                40.30
+ !WFR               JE   =  IY2                                                40.30
+ !WFR               INCJ = -IYSTEP                                             40.30
+@@ -1988,7 +1988,7 @@
+ !WFR!MPI! ======================================================================  40.30
+ !WFR!MPI
+ !WFR!TIMG!MPI              CALL SWTSTA(213)                                            40.30
+-!WFR!MPI              IF ( MXCGL.GT.MYCGL ) THEN                                  40.30
++!WFR!MPI              IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) ) THEN
+ !WFR!MPI                 DO III = LSTCP, 1, -1                                    40.31
+ !WFR!MPI                    CALL SWRECVAC(AC2,IS-III*INCI,JJ,SWPDIR,KGRPNT)       40.31
+ !WFR!MPI                 END DO                                                   40.31
+@@ -2001,7 +2001,8 @@
+ !WFR!MPI              IF (STPNOW()) RETURN                                        40.30
+ !WFR
+ !WFR              DO 390 II = IS, IE, INCI                                    40.30
+-!WFR                IF ( MXCGL.GT.MYCGL .OR. .NOT.PARLL ) THEN                40.30
++!WFR                IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) .OR.
++!WFR     &       .NOT.PARLL ) THEN
+ !WFR                  IX = II                                                 40.30
+ !WFR                  IY = JJ                                                 40.30
+ !WFR                ELSE                                                      40.30
+@@ -2082,7 +2083,7 @@
+ !WFR!MPI! ======================================================================  40.30
+ !WFR!MPI
+ !WFR!TIMG!MPI              CALL SWTSTA(213)                                            40.30
+-!WFR!MPI              IF ( MXCGL.GT.MYCGL ) THEN                                  40.30
++!WFR!MPI              IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) ) THEN
+ !WFR!MPI                 DO III = LSTCP-1, 0, -1                                  40.31
+ !WFR!MPI                    CALL SWSENDAC(AC2,IE-III*INCI,JJ,SWPDIR,KGRPNT)       40.31
+ !WFR!MPI                 END DO                                                   40.31
+--- a/SWAN/src/swanmain.ftn
++++ b/SWAN/src/swanmain.ftn
+@@ -8553,7 +8553,7 @@
+ !                  one (INDX  ) for the KGRPNT arrays local on each tile.
+ !
+         IF (NPROC.gt.1) THEN
+-          IF (MXCGL.gt.MYCGL) THEN                 ! tiled in x-direction
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN                 ! tiled in x-direction
+ !
+ !           For north and south data
+ !
+@@ -8709,7 +8709,7 @@
+ !  For N-S periodic, we add the west data to the east, and add east data to the west.
+ !
+         IF (NPROC.gt.1) THEN
+-          IF (MXCGL.gt.MYCGL) THEN                 ! tiled in x-direction
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN                 ! tiled in x-direction
+ !
+ !           For north and south data
+ !
+--- a/SWAN/src/swanparll.ftn
++++ b/SWAN/src/swanparll.ftn
+@@ -2259,6 +2259,7 @@
+ !
+       USE OCPCOMM4                                                        40.41
+       USE M_PARALL                                                        40.31
++      USE SWCOMM4, ONLY: KREPTX
+ !
+       IMPLICIT NONE
+ !
+@@ -2381,7 +2382,7 @@
+ 
+ !     --- determine direction of cutting
+ 
+-      IF ( MXC.GT.MYC ) THEN
++      IF ( (MXC.GT.MYC.AND.KREPTX.EQ.0) ) THEN
+          IDIR = 2
+       ELSE
+          IDIR = 1
+@@ -2436,6 +2437,7 @@
+ !
+       USE OCPCOMM4                                                        40.41
+       USE M_PARALL                                                        40.31
++      USE SWCOMM4, ONLY: KREPTX
+ !
+       IMPLICIT NONE
+ !
+@@ -2601,7 +2603,7 @@
+ 
+ !     --- determine enclosing box of present subdomain
+ 
+-!WFR      IF ( MXC.GT.MYC ) THEN
++!WFR      IF ( (MXC.GT.MYC.AND.KREPTX.EQ.0) ) THEN
+ !WFR         MXF = MXC+1
+ !WFR         MXL = 0
+ !WFR      ELSE
+@@ -2658,7 +2660,7 @@
+ 
+ !     --- localize global bounds in present subdomain
+ 
+-      IF ( MXCGL.GT.MYCGL ) THEN
++      IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) ) THEN
+          LMXF = MXF.EQ.1     .AND. INODE.EQ.1
+          LMXL = MXL.EQ.MXCGL .AND. INODE.EQ.NPROC
+          LMYF = MYF.EQ.1
+@@ -3699,6 +3701,7 @@
+       USE SWCOMM3                                                         40.41
+       USE M_GENARR                                                        40.31
+       USE M_PARALL                                                        40.31
++      USE SWCOMM4, ONLY: KREPTX
+ !
+       IMPLICIT NONE
+ !
+@@ -3888,7 +3891,7 @@
+             IOFF2 = 0
+ 
+             DO IP = 0, NPROC-1
+-               IF ( MXCGL.GT.MYCGL ) THEN
++               IF ( (MXCGL.GT.MYCGL.AND.KREPTX.EQ.0) ) THEN
+                   IF ( IARRC(1,IP).EQ.1 .AND. IP.EQ.0 ) THEN
+                      MXFGL = 1
+                   ELSE
+--- a/SWAN/src/swanpre1.ftn
++++ b/SWAN/src/swanpre1.ftn
+@@ -2106,6 +2106,9 @@
+               OPSDATZ_MOD(ng)%OPSTMP%OPR(1) = XPC                                         40.31
+               OPSDATZ_MOD(ng)%OPSTMP%OPR(2) = YPC                                         40.31
+               OPSDATZ_MOD(ng)%OPSTMP%OPR(3) = XCLEN                                       40.31
++!             REPeating grid: MXC points end one mesh before XCLEN
++              IF (KREPTX.EQ.1)
++     &          OPSDATZ_MOD(ng)%OPSTMP%OPR(3) = XCLEN - DX
+               OPSDATZ_MOD(ng)%OPSTMP%OPR(4) = YCLEN                                       40.31
+               OPSDATZ_MOD(ng)%OPSTMP%OPR(5) = ALPC                                        40.31
+            ELSE IF (OPTG.EQ.3) THEN                                       40.80 40.31
+@@ -2139,6 +2142,9 @@
+               OPSTMP%OPR(1) = XPC                                         40.31
+               OPSTMP%OPR(2) = YPC                                         40.31
+               OPSTMP%OPR(3) = XCLEN                                       40.31
++!             REPeating grid: MXC points end one mesh before XCLEN
++              IF (KREPTX.EQ.1)
++     &          OPSTMP%OPR(3) = XCLEN - DX
+               OPSTMP%OPR(4) = YCLEN                                       40.31
+               OPSTMP%OPR(5) = ALPC                                        40.31
+            ELSE IF (OPTG.EQ.3) THEN                                       40.80 40.31
+--- a/SWAN/src/swanpre3.ftn
++++ b/SWAN/src/swanpre3.ftn
+@@ -129,6 +129,7 @@
+ !=======================================================================
+ !
+       USE M_PARALL
++      USE SWCOMM4, ONLY: KREPTX
+       USE M_SREFINED
+       USE SWCOMM2
+       USE SWCOMM3
+@@ -277,7 +278,7 @@
+               ENDIF
+             END DO
+           ENDIF
+-          IF (MXCGL.gt.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             IF ((BOUNDHINDIX(i).ge.MXF).and.                               &
+      &          (BOUNDHINDIX(i).le.MXL)) THEN
+               BOUNDHINDPR(i)=INODE
+--- a/SWAN/src/waves_coupler.ftn
++++ b/SWAN/src/waves_coupler.ftn
+@@ -240,7 +240,7 @@
+         END IF
+         Jsize=MYCGL
+       ELSE
+-        IF (MXCGL.gt.MYCGL) THEN
++        IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+           IF (KREPTX.eq.1) THEN
+             Isize=MXC-IHALOX*IBLKAD(1)+1
+           ELSE
+@@ -269,7 +269,7 @@
+       END IF
+       DO j=1,Jsize
+         length(j)=Isize
+-        IF (MXCGL.gt.MYCGL) THEN
++        IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+           IF (MyRank.eq.0) THEN
+             start(j)=MXF+(j-1)*MXCGLc
+           ELSE
+@@ -975,6 +975,7 @@
+       integer :: Istr, Iend, Jstr, Jend, MXCGLc, start
+       integer :: Isize, Jsize, INDXG, NPROCS, OFFSET
+       integer, pointer :: points(:)
++      integer, allocatable :: isrc(:)
+ # ifdef SPECTRUM_STOKES
+       character (len=4) :: SCODE
+       integer :: IZ
+@@ -999,6 +1000,7 @@
+ !  Allocate attribute vector array used to export/import data.
+ !
+       allocate ( avdata(gsmsize),stat=ierr )
++      allocate ( isrc(gsmsize),stat=ierr )
+       allocate ( DIRE(gsmsize),stat=ierr )
+       allocate ( DIRN(gsmsize),stat=ierr )
+       avdata=0.0_m8
+@@ -1020,7 +1022,7 @@
+           Isize=MXCGL+1
+           Jsize=MYCGL
+         ELSE
+-          IF (MXCGL.gt.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             Isize=MXC-IHALOX*IBLKAD(1)+1
+             Jsize=MYC
+           ELSE
+@@ -1029,7 +1031,7 @@
+           END IF
+         END IF
+         MXCGLc=MXCGL
+-        IF (MXCGL.gt.MYCGL) THEN
++        IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+           IF (MyRank.eq.0) THEN
+             start=MXF+(j-1)*MXCGLc
+           ELSE
+@@ -1050,6 +1052,7 @@
+             IP=IP+1
+             IPI=IPI+1
+             avdata(IPI)=REAL( VOQ(IP,VOQR(IVTYPE)),m8 )
++            isrc(IPI)=IP
+           END DO
+           IPI=IPI+1
+         END DO
+@@ -1062,10 +1065,12 @@
+           IP=IP+Isize-1
+           IPI=IPI+Isize
+           avdata(IPI)=REAL( VOQ(IP,VOQR(IVTYPE)),m8 )
++          isrc(IPI)=IP
+         END DO
+       ELSE
+         DO IP=1,gsmsize
+           avdata(IP)=REAL( VOQ(points(IP),VOQR(IVTYPE)),m8 )
++          isrc(IP)=points(IP)
+         END DO
+       END IF
+ !
+@@ -1143,7 +1148,7 @@
+           END IF
+ 
+           DO IP=1,gsmsize
+-            avdata(IP)= REAL(KSS(points(IP),IZ), m8)
++            avdata(IP)= REAL(KSS(isrc(IP),IZ), m8)
+           END DO
+ 
+           CALL AttrVect_importRAttr (AttrVect_G(ng)%wav2ocn_AV,         &
+@@ -1158,7 +1163,7 @@
+           END IF
+ 
+           DO IP=1,gsmsize
+-            avdata(IP)= REAL(USS(points(IP),IZ), m8)
++            avdata(IP)= REAL(USS(isrc(IP),IZ), m8)
+           END DO
+ 
+           CALL AttrVect_importRAttr (AttrVect_G(ng)%wav2ocn_AV,         &
+@@ -1173,7 +1178,7 @@
+           END IF
+ 
+           DO IP=1,gsmsize
+-            avdata(IP)= REAL(VSS(points(IP),IZ), m8)
++            avdata(IP)= REAL(VSS(isrc(IP),IZ), m8)
+           END DO
+ 
+           CALL AttrVect_importRAttr (AttrVect_G(ng)%wav2ocn_AV,         &
+@@ -1266,7 +1271,7 @@
+           END IF
+ # endif
+       END IF
+-      deallocate (avdata, points, DIRE, DIRN)
++      deallocate (avdata, points, DIRE, DIRN, isrc)
+ !
+       RETURN
+       END SUBROUTINE WAV2OCN_COUPLING
+@@ -1591,7 +1596,7 @@
+           Jstr=1
+           Jend=MYC
+         ELSE
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             IF (MyRank.eq.0) THEN
+               Istr=1
+             ELSE
+@@ -1971,7 +1976,7 @@
+ !
+         IF (NPROCS.GT.1) THEN
+           MSIZE=HALOSIZE*NUMTRANSFER
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             allocate ( GSENDR(MSIZE),stat=ierr )
+             allocate ( GSENDL(MSIZE),stat=ierr )
+             allocate ( GRECVR(MSIZE),stat=ierr )
+@@ -2139,7 +2144,7 @@
+               END DO
+             END IF
+           END DO
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             deallocate (GRECVR,GRECVL,GSENDR,GSENDL)
+           ELSE
+             deallocate (GRECVT,GRECVB,GSENDT,GSENDB)
+@@ -2160,7 +2165,7 @@
+         DO IY=1,MYC
+           DO IX=1,MXC
+             IP=IP+1
+-            IF (MXCGL.gt.MYCGL) THEN
++            IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+               OFFSET=(MXF-1)+(IY-1)*MXCGL+IX
+             ELSE
+               OFFSET=(MYF-1)*MXCGL+(IY-1)*MXCGL+IX
+@@ -2412,7 +2417,7 @@
+           Jstr=1
+           Jend=MYC
+         ELSE
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             IF (MyRank.eq.0) THEN
+               Istr=1
+             ELSE
+@@ -2505,7 +2510,7 @@
+ !
+         IF (NPROCS.GT.1) THEN
+           MSIZE=HALOSIZE*NUMTRANSFER
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             allocate ( GSENDR(MSIZE),stat=ierr )
+             allocate ( GSENDL(MSIZE),stat=ierr )
+             allocate ( GRECVR(MSIZE),stat=ierr )
+@@ -2673,7 +2678,7 @@
+               END DO
+             END IF
+           END DO
+-          IF (MXCGL.GT.MYCGL) THEN
++          IF ((MXCGL.GT.MYCGL.AND.KREPTX.EQ.0)) THEN
+             deallocate (GRECVR,GRECVL,GSENDR,GSENDL)
+           ELSE
+             deallocate (GRECVT,GRECVB,GSENDT,GSENDB)
