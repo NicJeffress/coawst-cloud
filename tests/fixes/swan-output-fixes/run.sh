@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test of 1-fixes/swan-output-fixes.patch: SWAN output at the wrong place or
-# missing (items 6, 7 and 14).
+# missing (table_nc_coordinates, compgrid_nc_coordinates and output_obstacle_flags).
 #
 #   tests/fixes/swan-output-fixes/run.sh OUTDIR
 #
@@ -9,7 +9,7 @@
 #   POINTS 'pts' at 9 locations between grid points, written as TABLE text
 #   (pts.table) and as TABLE NetCDF (pts.nc); the case's own BLOCK hsig.nc.
 # MALLOC_PERTURB_ fills newly allocated memory with a non-zero pattern, so the
-# never-initialised flags of item 14 read "true" every time instead of at
+# never-initialised flags of output_obstacle_flags read "true" every time instead of at
 # random (glibc feature; it does not change correct code).
 # check.py compares: before, some checks are BAD; after, all ok.
 # Needs Docker and Python with numpy and netCDF4 (PYTHON). About 20 min.

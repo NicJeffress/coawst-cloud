@@ -22,7 +22,7 @@ Output goes to a FRAME on the grid points x = 0 .. xlen - dx (the same
 points for rep and norep), not to COMPGRID: with REPEATING, SWAN's COMPGRID
 frame spread its points over the full period (spacing xlen/(mxc-1)), so its
 output was interpolated between grid points and partly flagged as outside
-(SWAN item 11 in 1-fixes/swan-periodic-fixes; hsign_compgrid.nc checks it).
+(SWAN periodic_compgrid_frame in 1-fixes/swan-periodic-fixes; hsign_compgrid.nc checks it).
 """
 import sys
 from pathlib import Path

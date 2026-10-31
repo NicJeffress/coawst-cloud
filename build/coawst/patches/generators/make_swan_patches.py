@@ -3,10 +3,10 @@
 Usage: python3 -I make_swan_patches.py <COAWST tree>/SWAN/src <build/coawst/patches>
 
 Reads the unpatched SWAN sources and writes the SWAN patches listed in GROUPS
-(at the end) into the patch folder, one per group. Each item below is one change
-(numbered as in the patch documents, e.g. 1-fixes/swan-output-fixes.md); the
-items edit the source text by search and replace and stop with a message if the
-text they expect is not there. GROUPS runs them in the order of the series
+(at the end) into the patch folder, one per group. Each change_* function below
+is one change, named as in the patch documents (e.g. periodic_y_strips in
+1-fixes/swan-periodic-fixes.md); the changes edit the source text by search and
+replace and stop with a message if the text they expect is not there. GROUPS runs them in the order of the series
 (fixes first, then improvements), and each patch holds the changes of its group
 relative to the source after the groups before it, so the patches apply in that
 order. tests/same_source/compare_series.sh checks a regenerated series against
@@ -111,7 +111,7 @@ files = {}
 
 
 
-# Helpers used by several items.
+# Helpers used by several changes.
 
 
 def check_columns(lines, name):
@@ -147,7 +147,7 @@ def wfr(text):
     for l in text.strip("\n").splitlines():
         l = l if l.startswith("#") else "!WFR" + l
         if not l.startswith("#") and len(l) - 4 > 72:
-            sys.exit(f"item 20: line longer than 72 columns: {l}")
+            sys.exit(f"halo_exchange_nonblocking: line longer than 72 columns: {l}")
         out.append(l + "\n")
     return out
 
@@ -158,8 +158,8 @@ def replace_block(sub, first, last, new):
     return sub[:i] + new + sub[j + 1:]
 
 
-def item_1():
-    # 1. ocpmix.ftn: FOR used a fixed 140-char dummy for its filename argument.
+def change_nc_filename_length():
+    # nc_filename_length: ocpmix.ftn: FOR used a fixed 140-char dummy for its filename argument.
     #    Fixed-form source: pad 5 spaces so the version tag stays past column 72.
     name = "ocpmix.ftn"
     lines = load(name)
@@ -168,8 +168,8 @@ def item_1():
     files[name] = lines
 
 
-def item_2a():
-    # 2a. swn_outnc.ftn90: the name table STNAMES(171,2) is indexed with
+def change_stnames_size():
+    # stnames_size: swn_outnc.ftn90: the name table STNAMES(171,2) is indexed with
     #     COAWST's quantity numbers (IVTYPE) up to 202 (DIRBOT, DICD, SSPEC):
     #     enlarge it to 202.
     name = "swn_outnc.ftn90"
@@ -178,9 +178,9 @@ def item_2a():
     files[name] = lines
 
 
-def item_2b():
+def change_netcdf_names():
     global stnames
-    # 2b. swn_outnc.ftn90: NetCDF names for the quantities that item 3 adds.
+    # netcdf_names: swn_outnc.ftn90: NetCDF names for the quantities that netcdf_records adds.
     name = "swn_outnc.ftn90"
     lines = load(name)
     end = [i for i, l in enumerate(lines) if "stnames_initialized = .true." in l]
@@ -197,9 +197,9 @@ def item_2b():
     stnames = set(existing.values()) | {v[2] for v in new_vars}
 
 
-def item_3():
+def change_netcdf_records():
     global n_new
-    # 3. nctablemd.ftn90: store everything as 32-bit float; add records.
+    # netcdf_records: nctablemd.ftn90: store everything as 32-bit float; add records.
     name = "nctablemd.ftn90"
     lines = load(name)
     n_old = 66
@@ -234,8 +234,8 @@ def item_3():
     files[name] = lines
 
 
-def item_4():
-    # 4. agioncmd.ftn90: never add packing attributes to float variables.
+def change_netcdf_float():
+    # netcdf_float: agioncmd.ftn90: never add packing attributes to float variables.
     name = "agioncmd.ftn90"
     lines = load(name)
     replace_once(lines, "            if ( rng /= 0 ) then",
@@ -243,8 +243,8 @@ def item_4():
     files[name] = lines
 
 
-def item_5():
-    # 5. waves_control.ftn: COAWST carried on into the run (and the first coupling
+def change_stop_on_input_errors():
+    # stop_on_input_errors: waves_control.ftn: COAWST carried on into the run (and the first coupling
     #    exchange) even when SWAN_INITIALIZE reported input errors, e.g. a rejected
     #    output request, which then led to out-of-bounds writes in SWOEXC. Stop the
     #    whole MPI job instead, after flushing the PRINT file (MPI_ABORT would
@@ -275,8 +275,8 @@ def item_5():
     files[name] = lines
 
 
-def item_6():
-    # 6. swanparll.ftn: with more than one SWAN process, TABLE output to .nc is
+def change_table_nc_coordinates():
+    # table_nc_coordinates: swanparll.ftn: with more than one SWAN process, TABLE output to .nc is
     #    merged by SWCOLBLK, which wrote the coordinates of the first grid cells
     #    (XGRDGL) as the point locations. Pass the output point coordinates
     #    XP/YP from SWCOLOUT and use them for TABLE. Lines starting !NCF are
@@ -316,8 +316,8 @@ def item_6():
     files[name] = lines
 
 
-def item_7():
-    # 7. swanout2.ftn (SWBLOK): with one SWAN process, BLOCK output on COMPGRID
+def change_compgrid_nc_coordinates():
+    # compgrid_nc_coordinates: swanout2.ftn (SWBLOK): with one SWAN process, BLOCK output on COMPGRID
     #    took its x/y from the XP/YP output quantities, which SWOEXC sets to the
     #    exception value (-1e10) at inactive grid points (bottom exception value,
     #    e.g. land). With several processes SWCOLBLK writes the grid coordinates
@@ -366,8 +366,8 @@ def item_7():
     files[name] = lines
 
 
-def item_8():
-    # 8. swanpre1.ftn (VEGEtation command): iveg 3 selects COAWST's SVEG_COAWST,
+def change_veg3_young_modulus():
+    # veg3_young_modulus: swanpre1.ftn (VEGEtation command): iveg 3 selects COAWST's SVEG_COAWST,
     #    which reads Young's modulus VEGYML(1), but only the VEGCtation command
     #    (iveg 2) allocates VEGYML, so `VEGETATION 3 ...` read an unallocated
     #    array. Allocate it here with a rigid default (1e9 Pa, as in COAWST
@@ -391,8 +391,8 @@ def item_8():
     files[name] = lines
 
 
-def item_9():
-    # 9. swancom2.ftn (SVEG_COAWST, flexible vegetation): the second moment of
+def change_veg3_flexible_plants():
+    # veg3_flexible_plants: swancom2.ftn (SVEG_COAWST, flexible vegetation): the second moment of
     #    area was VEGDIL*VEGTHK**(3./12.) (thickness^0.25; operator precedence)
     #    and the Cauchy number divided by CFF2+MAX_EPS (1e12), so the Cauchy
     #    number was always ~0 and every plant behaved as rigid. ROMS's own
@@ -407,8 +407,8 @@ def item_9():
     files[name] = lines
 
 
-def item_10():
-    # 10. Plant height/diameter/thickness input grids are registered as grids
+def change_plant_input_grids():
+    # plant_input_grids: Plant height/diameter/thickness input grids are registered as grids
     #     18/19/20 (INPGRID and READINP, swanpre1.ftn) but SWRBC and the
     #     unstructured branch (swanmain.ftn) interpolated them with grids
     #     16/17/18 (the sea-swell HSS/TSS/DSS grids of SWAN 41.51), i.e. with
@@ -425,7 +425,7 @@ def item_10():
             lines[i] = lines[i].replace(f"SVALQI (XP, YP, {old}, {q},", f"SVALQI (XP, YP, {new}, {q},")
     files[name] = lines
     name = "swanpre1.ftn"
-    lines = load(name)          # already changed by item 8
+    lines = load(name)          # already changed by veg3_young_modulus
     start = [i for i, l in enumerate(lines) if "ELSE IF (KEYWIS ('NPHT')) THEN" in l][0]
     nxt = [i for i in range(start, start + 8) if "VARNPL = .TRUE." in lines[i]]
     if len(nxt) != 1:
@@ -436,14 +436,14 @@ def item_10():
 
 
 
-def item_11():
-    # 11. swanpre1.ftn (CGRID): with COORDINATES ... REPEATING the grid has MXC
+def change_periodic_compgrid_frame():
+    # periodic_compgrid_frame: swanpre1.ftn (CGRID): with COORDINATES ... REPEATING the grid has MXC
     #     points x = 0 .. XCLEN-DX (x = XCLEN is x = 0 again), but the built-in
     #     COMPGRID output frame spread its MXC points over 0 .. XCLEN, so BLOCK
     #     output on COMPGRID was interpolated between grid points (spacing
     #     XCLEN/(MXC-1)) and many points came out as exception values.
     name = "swanpre1.ftn"
-    lines = load(name)          # already changed by items 8 and 10
+    lines = load(name)          # already changed by veg3_young_modulus and plant_input_grids
     hits = [i for i, l in enumerate(lines) if "%OPR(3) = XCLEN" in l]
     if len(hits) != 2:
         sys.exit(f"{name}: expected 2 COMPGRID frame definitions, found {len(hits)}")
@@ -458,8 +458,8 @@ def item_11():
     files[name] = lines
 
 
-def item_12():
-    # 12. With COORDINATES ... REPEATING and more than one SWAN process, SWAN cut
+def change_periodic_y_strips():
+    # periodic_y_strips: With COORDINATES ... REPEATING and more than one SWAN process, SWAN cut
     #     the grid into x-strips whenever MXC > MYC, but its halo exchange never
     #     wraps around in x: the strips at the periodic seam got no neighbour
     #     data (segfault in SWRECVAC, or garbage wave heights). Always cut a
@@ -504,8 +504,8 @@ def item_12():
         files[name] = lines
 
 
-def item_13():
-    # 13. COORDINATES ... REPEATING on curvilinear grids (SWAN stopped with
+def change_periodic_curvilinear():
+    # periodic_curvilinear: COORDINATES ... REPEATING on curvilinear grids (SWAN stopped with
     #     "Curvilinear grid cannot be REPeating"). The wrap itself is in index
     #     space (IXCGRD +- MXC) and grid-type independent; what needs the period
     #     is every place that differences coordinates of neighbours across the
@@ -539,7 +539,7 @@ def item_13():
     files[name] = lines
 
     name = "swanmain.ftn"
-    lines = load(name)                  # already changed by items 10 and 12
+    lines = load(name)                  # already changed by plant_input_grids and periodic_y_strips
     insert_after(lines, r"^      KREPTX = 0 ", ["      XCPER  = 0.\n", "      YCPER  = 0.\n"], name)
     i = find(lines, r"LOGICAL FUNCTION SINCMP", name)[0]
     insert_after(lines, r"^      USE SWCOMM3\b", ["      USE SWCOMM4\n"], name, i, i + 80)
@@ -559,7 +559,7 @@ def item_13():
     files[name] = lines
 
     name = "swanpre1.ftn"
-    lines = load(name)                  # already changed by items 8, 10 and 11
+    lines = load(name)                  # already changed by veg3_young_modulus, plant_input_grids and periodic_compgrid_frame
     i = find(lines, r"^              YCGRID\(I,J\)=VALY ", name)[0]
     if not (lines[i + 2].startswith(" 200 ") and lines[i + 3] == "        ENDIF\n"):
         sys.exit(f"{name}: end of the regular grid coordinate loop not found")
@@ -876,8 +876,8 @@ def item_13():
     files[name] = lines
 
 
-def item_14():
-    # 14. swanout1.ftn: the obstacle-crossing flags of output points, CROSS(4,MIP),
+def change_output_obstacle_flags():
+    # output_obstacle_flags: swanout1.ftn: the obstacle-crossing flags of output points, CROSS(4,MIP),
     #     were allocated but never set (the initialisation is commented out and
     #     nothing assigns them). SWIPOL drops a grid corner from the
     #     interpolation when its flag reads true, so FRAME/POINTS/TABLE values
@@ -885,15 +885,15 @@ def item_14():
     #     depending on leftover memory (small TABLE outputs most often). Output on
     #     grid points (BLOCK 'COMPGRID') was not affected. Set them to .FALSE.
     name = "swanout1.ftn"
-    lines = load(name)                  # already changed by item 13
+    lines = load(name)                  # already changed by periodic_curvilinear
     for i in reversed(find(lines, r"^        ALLOCATE\(CROSS\(4,MIP\)\)", name, count=3)):
         lines.insert(i + 1, "        CROSS = .FALSE.\n")
     check_columns(lines, name)
     files[name] = lines
 
 
-def item_15():
-    # 15. waves_coupler.ftn (WAV2OCN_COUPLING): with REPEATING, the coupling
+def change_periodic_coupled_stokes():
+    # periodic_coupled_stokes: waves_coupler.ftn (WAV2OCN_COUPLING): with REPEATING, the coupling
     #     layout has one more column per row than SWAN's grid (ROMS's i = 0..Lm+1
     #     against SWAN's MXC), and the ordinary wave fields are re-indexed for
     #     that. The spectral Stokes fields (SPECTRUM_STOKES: KSS, USS, VSS)
@@ -902,7 +902,7 @@ def item_15():
     #     0.5 m deep crest, Stokes drift reached 1.4 m/s and ROMS blew up after
     #     35 min. Build the index map once (isrc) and use it for the spectra.
     name = "waves_coupler.ftn"
-    lines = load(name)                  # already changed by item 12
+    lines = load(name)                  # already changed by periodic_y_strips
     lo = find(lines, r"^      SUBROUTINE WAV2OCN_COUPLING ", name)[0]
     hi = find(lines, r"^      END SUBROUTINE WAV2OCN_COUPLING", name)[0]
     insert_after(lines, r"^      integer, pointer :: points\(:\)", ["      integer, allocatable :: isrc(:)\n"], name, lo, hi)
@@ -927,8 +927,8 @@ def item_15():
     files[name] = lines
 
 
-def item_16():
-    # 16. swancom2.ftn (SVEG_COAWST, VEGETATION 3): where the plants reach the
+def change_veg3_emergent_cd():
+    # veg3_emergent_cd: swancom2.ftn (SVEG_COAWST, VEGETATION 3): where the plants reach the
     #     surface (depth < plant height) the drag coefficient was a fixed 1.95,
     #     whatever the drag method of the VEGETATION 3 command (1: Cd = 1, as
     #     for submerged plants and in ROMS's CD_VEG); SVEG (VEGETATION 1) keeps
@@ -938,7 +938,7 @@ def item_16():
     #     Cd = 1, method 2 from the Keulegan-Carpenter number with the orbital
     #     velocity at the surface (alpha = h/d = 1).
     name = "swancom2.ftn"
-    lines = load(name)                  # already changed by item 9
+    lines = load(name)                  # already changed by veg3_flexible_plants
     replace_lines(lines, r"^      ELSE IF \( DEP2\(KCGRD\(1\)\)\.LT\.SLAYH \) THEN$", [
         "      ELSE\n",
         "!        Project patch: plants up to or through the surface. Cd from\n",
@@ -958,13 +958,13 @@ def item_16():
     files[name] = lines
 
 
-def item_17():
-    # 17. swanout1.ftn (SWOEXD): the output of COAWST's vegetation drag
+def change_dicd_output():
+    # dicd_output: swanout1.ftn (SWOEXD): the output of COAWST's vegetation drag
     #     coefficient (DICD, quantity 201, COMPDA(:,JDSXC)) tested and filled
     #     quantity 80, which SWAN 41.51 uses for REDC (QC scattering; that block
     #     comes later and overwrote it). So DICD output was always 0. Use 201.
     name = "swanout1.ftn"
-    lines = load(name)                  # already changed by items 13-14
+    lines = load(name)                  # already changed by periodic_curvilinear and output_obstacle_flags
     lo = find(lines, r"^!     vegetation drag coefficient", name)[0]
     hi = find(lines, r"^            VOQ\(IP,VOQR\(80\)\)  = OVEXCV\(80\) ", name, lo)[0]
     n80 = 0
@@ -979,8 +979,8 @@ def item_17():
     files[name] = lines
 
 
-def item_18():
-    # 18. Closed periodic curvilinear grids (O-grids around an island; new
+def change_closed_ring():
+    # closed_ring: Closed periodic curvilinear grids (O-grids around an island; new
     #     feature). The grid's last column
     #     (column MXC+1 in READGRID COORDINATES) is column 1 itself, so the
     #     period vector is zero.
@@ -997,7 +997,7 @@ def item_18():
     #       i = Lm+1 SWAN column 1, and SWAN skips both when receiving (i = 0
     #       at the start of each row, i = Lm+1 by the existing skip at its end).
     name = "swmod1.ftn"
-    lines = load(name)                  # already changed by item 13
+    lines = load(name)                  # already changed by periodic_curvilinear
     insert_after(lines, r"^! YCPER  \[    0\.\] y component of that period vector$", [
         "! KRING  [    0 ] 1: repeating curvilinear grid that closes on itself (O-grid),\n",
         "!                 i.e. period vector 0; the coupler then maps ROMS i = 1..Lm to\n",
@@ -1006,7 +1006,7 @@ def item_18():
     files[name] = lines
 
     name = "swanmain.ftn"
-    lines = load(name)                  # already changed by items 10, 12 and 13
+    lines = load(name)                  # already changed by plant_input_grids, periodic_y_strips and periodic_curvilinear
     insert_after(lines, r"^      YCPER  = 0\.$", ["      KRING  = 0\n"], name)
     replace_lines(lines, r"^        IF \(OPTG\.EQ\.3 \.AND\. XCPER\.EQ\.0\. \.AND\. YCPER\.EQ\.0\.\)$", [
         "        IF (OPTG.EQ.3 .AND. XCPER.EQ.0. .AND. YCPER.EQ.0. .AND.\n",
@@ -1015,7 +1015,7 @@ def item_18():
     files[name] = lines
 
     name = "swanpre1.ftn"
-    lines = load(name)                  # already changed by items 8, 10, 11 and 13
+    lines = load(name)                  # already changed by veg3_young_modulus, plant_input_grids, periodic_compgrid_frame and periodic_curvilinear
     i = find(lines, r"^     &      ' REPeating curvilinear grid, period vector \(x,y\):',$", name)[0]
     if lines[i + 1] != "     &      XCPER, YCPER\n":
         sys.exit(f"{name}: CVPERI period message not found")
@@ -1074,14 +1074,14 @@ def item_18():
     files[name] = lines
 
     name = "swanser.ftn"
-    lines = load(name)                  # already changed by item 13
+    lines = load(name)                  # already changed by periodic_curvilinear
     replace_lines(lines, r"^         IF \(KGRPNT\(1,IY\)\.GT\.1\) THEN$", [
         "         IF (KGRPNT(1,IY).GT.1 .AND. KRING.EQ.0) THEN\n"], name)
     check_columns(lines, name)
     files[name] = lines
 
     name = "waves_coupler.ftn"
-    lines = load(name)                  # already changed by items 12 and 15
+    lines = load(name)                  # already changed by periodic_y_strips and periodic_coupled_stokes
     lo = find(lines, r"^      SUBROUTINE INITIALIZE_WAV_COUPLING$", name)[0]
     hi = find(lines, r"^      SUBROUTINE INITIALIZE_WAV_ROUTERS$", name)[0]
     for regex, old, new in [
@@ -1144,8 +1144,8 @@ def item_18():
     files[name] = lines
 
 
-def item_19():
-    # 19. Exact restarts (needed to resume runs on Spot VMs). COAWST's
+def change_exact_restart():
+    # exact_restart: Exact restarts (needed to resume runs on Spot VMs). COAWST's
     #     RESTART 'fname' FREE|UNFormatted <interval> command writes SWAN's
     #     state every interval, but RESTART_SWAN always wrote the formatted
     #     text layout, where WRSPEC keeps about 5 significant digits of each
@@ -1173,7 +1173,7 @@ def item_19():
     name = "swan_iounits.ftn"
     lines = load(name)
     insert_after(lines, r"^      integer, dimension\(:\), pointer :: SwanRstFnum$", [
-        "!  SWAN patch item 19: SwanRstUnf, RESTART files binary (exact);\n",
+        "!  swan-exact-restart: SwanRstUnf, RESTART files binary (exact);\n",
         "!  HotFull, HotCompda, HotAc2: the full state read by INIT HOTSTART\n",
         "!  ... UNFormatted, restored in SWAN_RUN at IT = 0 (one grid only)\n",
         "      logical, dimension(:), pointer :: SwanRstUnf\n",
@@ -1206,7 +1206,7 @@ def item_19():
     hi += 1
     i = find(lines, r"^      CALL FOR \(NREF,  SwanRstName\(ng\), 'UF', IOSTAT\)", name, lo, hi)[0]
     lines[i:i] = """\
-!     UNFormatted (SWAN patch item 19): the binary HOTFILE layout, exact,
+!     UNFormatted (swan-exact-restart): the binary HOTFILE layout, exact,
 !     then MCGRD, MCMVAR, MDC, MSC, COMPDA and AC2 for an exact restart
       IF (SwanRstUnf(ng)) THEN
        CALL FOR (NREF, SwanRstName(ng), 'UU', IOSTAT)
@@ -1277,7 +1277,7 @@ def item_19():
         sys.exit(f"{name}: end of the binary branch of INITVA not found")
     lines[i:i] = """\
 #ifdef SWAN_MODEL
-!        full SWAN state of RESTART ... UNFormatted (SWAN patch item 19),
+!        full SWAN state of RESTART ... UNFormatted (swan-exact-restart),
 !        put back in SWAN_RUN at IT = 0
          READ (NREF, IOSTAT=IOS) N1, N2, N3, N4
          IF (IOS.EQ.0 .AND. N1.EQ.MCGRD .AND. N3.EQ.MDC .AND.
@@ -1305,7 +1305,7 @@ def item_19():
     lo = find(lines, r"^      SUBROUTINE SWAN_RUN \(IT_in, ngp, first\)", name)[0]
     i = find(lines, r"^            do_output=1$", name, lo)[0]
     lines[i:i] = """\
-!     SWAN patch item 19: the full state of an exact restart, after the
+!     swan-exact-restart: the full state of an exact restart, after the
 !     IT = 0 initialisation and before the output and the first exchange
             IF (HotFull .AND. IT.EQ.0) THEN
               IF (SIZE(HotCompda,2).EQ.MCMVAR) THEN
@@ -1332,7 +1332,7 @@ def item_19():
 !                                                                      *
 !***********************************************************************
 !
-!     SWAN patch item 19: after a coupling exchange at which a binary
+!     swan-exact-restart: after a coupling exchange at which a binary
 !     restart file was written, append COMPDA (the exchange put ROMS's
 !     fields into it). After the first exchange of a run started from
 !     such a file, first put back the COMPDA of the uninterrupted run.
@@ -1378,7 +1378,7 @@ def item_19():
     lines = load(name)
     i = find(lines, r"^        CALL SWAN_CPL \(0\)$", name)[0]
     lines[i + 1:i + 1] = [
-        "!     SWAN patch item 19: COMPDA after the exchange (exact restarts)\n",
+        "!     swan-exact-restart: COMPDA after the exchange (exact restarts)\n",
         "        DO ng=1,NUM_SGRIDS\n",
         "          CALL SWAN_RST_POST (0)\n",
         "        END DO\n"]
@@ -1394,13 +1394,13 @@ def item_19():
                       "            CALL SWAN_RST_POST (iics(ng))\n",
                       "          END DO\n"]
     lines[i - 5:j + 3] = (["!     restart files hold the state the coupling exchange uses, then\n",
-                           "!     COMPDA after it (SWAN patch item 19)\n"] + blk_rst + blk_cpl)
+                           "!     COMPDA after it (swan-exact-restart)\n"] + blk_rst + blk_cpl)
     check_columns(lines, name)
     files[name] = lines
 
 
-def item_20():
-    # 20. swanparll.ftn (SWEXCHG, wavefront version): the halo exchange between
+def change_halo_exchange_nonblocking():
+    # halo_exchange_nonblocking: swanparll.ftn (SWEXCHG, wavefront version): the halo exchange between
     #     SWAN processes sent to every neighbour with a blocking MPI_SEND before
     #     receiving anything. MPI buffers a message only up to its eager limit
     #     (4 KB in shared memory = 1024 REALs); above that MPI_SEND waits for the
@@ -1439,7 +1439,7 @@ def item_20():
 
 !     --- post every receive, then every send, and wait for all:
 !         blocking sends to all neighbours first deadlock once a
-!         message exceeds MPI's eager limit (coawst-cloud item 20)
+!         message exceeds MPI's eager limit (swan-halo-hang.patch)
 
       ALLOCATE (WRCV(MAX(MXC,MYC),NNEIGH), WSND(MAX(MXC,MYC),NNEIGH))
       ALLOCATE (IREQ(2*NNEIGH))
@@ -1492,8 +1492,8 @@ def item_20():
     files[name] = lines
 
 
-def item_21():
-    # 21. agioncmd.ftn90: compressed NetCDF-4 output, as ROMS writes with
+def change_netcdf4_compression():
+    # netcdf4_compression: agioncmd.ftn90: compressed NetCDF-4 output, as ROMS writes with
     #     OUT_NETCDF4 + DEFLATE (the Dockerfile default). SWAN
     #     created its .nc files as classic 64-bit offset files. With both options
     #     in the case header (agioncmd now includes swancpp.h, i.e. cppdefs.h and
@@ -1502,16 +1502,16 @@ def item_21():
     #     curvilinear x/y, spectra) shuffle + deflate level 1, lossless, as ROMS's
     #     def_var.F does. Without the options the files stay classic.
     name = "agioncmd.ftn90"
-    lines = load(name)                  # already changed by item 4
+    lines = load(name)                  # already changed by netcdf_float
     mod = [i for i, l in enumerate(lines) if l.rstrip() == "      module agioncmd"]
     if len(mod) != 1:
-        sys.exit(f"item 21: {name}: module line not found")
+        sys.exit(f"netcdf4_compression: {name}: module line not found")
     lines[mod[0]:mod[0]] = ['#include "swancpp.h"\n']
     create = "            call nccheck ( nf90_create( ncfile, NF90_NOCLOBBER + NF90_64BIT_OFFSET, ncid) )\n"
     i = lines.index(create)
     lines[i:i + 1] = [
         "#if defined OUT_NETCDF4\n",
-        "            ! compressed NetCDF-4/HDF5 file, as ROMS (coawst-cloud item 21)\n",
+        "            ! compressed NetCDF-4/HDF5 file, as ROMS (swan-netcdf4-compression)\n",
         "            call nccheck ( nf90_create( ncfile, IOR(NF90_NOCLOBBER, NF90_NETCDF4), ncid) )\n",
         "#else\n",
         create,
@@ -1521,7 +1521,7 @@ def item_21():
     lines[i + 1:i + 1] = ["\n"] + ("""\
         subroutine agnc_compress( ncid, varid )
             ! shuffle + deflate level 1 (lossless) in NetCDF-4 files, as
-            ! ROMS's def_var.F (coawst-cloud item 21; no cpp names in comments)
+            ! ROMS's def_var.F (swan-netcdf4-compression; no cpp names in comments)
             integer,              intent(in)                    :: ncid, varid
 #if defined OUT_NETCDF4 && defined DEFLATE
             call nccheck ( nf90_def_var_deflate( ncid, varid, 1, 1, 1 ) )
@@ -1542,39 +1542,39 @@ def item_21():
         if "(/" in stmt:
             m = re.search(r",[\s&]*([\w%]+)\s*\)\s*\)\s*;?\s*$", stmt)
             if m is None:
-                sys.exit(f"item 21: varid not found in {stmt!r}")
+                sys.exit(f"netcdf4_compression: varid not found in {stmt!r}")
             varid = m.group(1)
             indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
             lines.insert(j + 1, f"{indent}call agnc_compress( ncid, {varid} )\n")
             n_comp += 1
         i = j + 1
     if n_comp != 16:
-        sys.exit(f"item 21: expected 16 multi-dimensional nf90_def_var calls, found {n_comp}")
+        sys.exit(f"netcdf4_compression: expected 16 multi-dimensional nf90_def_var calls, found {n_comp}")
     files[name] = lines
 
 
 # ---------------------------------------------------------------------------
-# Driver: run the items in the order of GROUPS and write one patch per group.
+# Driver: run the changes in the order of GROUPS and write one patch per group.
 load_original = load
 
 
 def load(name):
-    """A file as changed by the items run so far (the original if untouched)."""
+    """A file as changed by the changes run so far (the original if untouched)."""
     return list(files[name]) if name in files else load_original(name)
 
 
 GROUPS = [
-    ("1-fixes/swan-nc-crash.patch", ["1", "2a"]),
-    ("1-fixes/swan-stop-on-input-errors.patch", ["5"]),
-    ("1-fixes/swan-output-fixes.patch", ["6", "7", "14"]),
-    ("1-fixes/swan-vegetation-fixes.patch", ["8", "9", "10", "16", "17"]),
-    ("1-fixes/swan-periodic-fixes.patch", ["11", "12", "15"]),
-    ("1-fixes/swan-halo-hang.patch", ["20"]),
-    ("1-fixes/swan-exact-restart.patch", ["19"]),
-    ("2-improvements/swan-netcdf-output.patch", ["2b", "3", "4"]),
-    ("2-improvements/swan-netcdf4-compression.patch", ["21"]),
-    ("2-improvements/swan-periodic-curvilinear.patch", ["13"]),
-    ("2-improvements/swan-closed-ring.patch", ["18"]),
+    ("1-fixes/swan-nc-crash.patch", ["nc_filename_length", "stnames_size"]),
+    ("1-fixes/swan-stop-on-input-errors.patch", ["stop_on_input_errors"]),
+    ("1-fixes/swan-output-fixes.patch", ["table_nc_coordinates", "compgrid_nc_coordinates", "output_obstacle_flags"]),
+    ("1-fixes/swan-vegetation-fixes.patch", ["veg3_young_modulus", "veg3_flexible_plants", "plant_input_grids", "veg3_emergent_cd", "dicd_output"]),
+    ("1-fixes/swan-periodic-fixes.patch", ["periodic_compgrid_frame", "periodic_y_strips", "periodic_coupled_stokes"]),
+    ("1-fixes/swan-halo-hang.patch", ["halo_exchange_nonblocking"]),
+    ("1-fixes/swan-exact-restart.patch", ["exact_restart"]),
+    ("2-improvements/swan-netcdf-output.patch", ["netcdf_names", "netcdf_records", "netcdf_float"]),
+    ("2-improvements/swan-netcdf4-compression.patch", ["netcdf4_compression"]),
+    ("2-improvements/swan-periodic-curvilinear.patch", ["periodic_curvilinear"]),
+    ("2-improvements/swan-closed-ring.patch", ["closed_ring"]),
 ]
 
 if __name__ == "__main__":
@@ -1582,7 +1582,7 @@ if __name__ == "__main__":
     for patch, items in GROUPS:
         before = {k: list(v) for k, v in files.items()}
         for it in items:
-            globals()["item_" + it]()
+            globals()["change_" + it]()
         path = outdir / patch
         path.parent.mkdir(parents=True, exist_ok=True)
         n = 0
@@ -1593,4 +1593,4 @@ if __name__ == "__main__":
                     f.writelines(difflib.unified_diff(old, files[name], f"a/SWAN/src/{name}",
                                                       f"b/SWAN/src/{name}"))
                     n += 1
-        print(f"{patch}: items {', '.join(items)}, {n} files")
+        print(f"{patch}: {', '.join(items)}, {n} files")

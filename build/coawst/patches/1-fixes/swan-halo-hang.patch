@@ -35,7 +35,7 @@
 -!WFR
 +!WFR!     --- post every receive, then every send, and wait for all:
 +!WFR!         blocking sends to all neighbours first deadlock once a
-+!WFR!         message exceeds MPI's eager limit (coawst-cloud item 20)
++!WFR!         message exceeds MPI's eager limit (swan-halo-hang.patch)
 +!WFR
 +!WFR      ALLOCATE (WRCV(MAX(MXC,MYC),NNEIGH), WSND(MAX(MXC,MYC),NNEIGH))
 +!WFR      ALLOCATE (IREQ(2*NNEIGH))

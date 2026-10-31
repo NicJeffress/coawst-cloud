@@ -5,14 +5,14 @@
 | **Type** | fix |
 | **Changes results?** | no (memory-safety fix: removes a crash and silent memory corruption) |
 | **Default** | on |
-| **Files** | `SWAN/src/ocpmix.ftn` (item 1), `SWAN/src/swn_outnc.ftn90` (item 2a) |
+| **Files** | `SWAN/src/ocpmix.ftn` (`nc_filename_length`), `SWAN/src/swn_outnc.ftn90` (`stnames_size`) |
 | **Evidence** | SWAN built with gfortran run-time checks: stock stops at both accesses, patched runs clean (results below); Valgrind 16 invalid accesses before, 0 after (2026-10-20) |
 | **Test** | [`tests/fixes/swan-nc-crash/run.sh`](../../../../tests/fixes/swan-nc-crash/run.sh) |
 | **Upstream** | related reports DOI-USGS/COAWST#455 (malloc error in Inlet_test/Coupled) and #333 (unreliable SWAN `.nc` output); fix not yet proposed |
 
-Item numbers refer to the list of SWAN changes in
-[`generators/make_swan_patches.py`](../generators/make_swan_patches.py), which
-writes all SWAN patches of the series.
+Each change below is named as its function in
+[`generators/make_swan_patches.py`](../generators/make_swan_patches.py)
+(`change_<name>`), which writes all SWAN patches of the series.
 
 ## Summary
 
@@ -23,7 +23,7 @@ visible, on some an abort. COAWST's own Inlet_test, which writes one SWAN
 NetCDF file (`hsig.nc`), crashed on some cloud VMs with
 `malloc(): unaligned tcache chunk detected` and ran on others.
 
-## Item 1: a 140-character file name read from an 11-character string
+## `nc_filename_length`: a 140-character file name read from an 11-character string
 
 `FOR` (`ocpmix.ftn`) opens files. It declared its file-name argument as
 `CHARACTER DDNAME*(LENFNM)`, i.e. exactly 140 characters. For NetCDF output,
@@ -43,7 +43,7 @@ Fix: assumed length, so `DDNAME` is as long as what the caller passes.
 Callers that pass 140-character variables, as all other callers do, behave
 exactly as before.
 
-## Item 2a: the NetCDF name table indexed past its end
+## `stnames_size`: the NetCDF name table indexed past its end
 
 `swn_outnc.ftn90` keeps the NetCDF name of each SWAN output quantity in
 `STNAMES(171,2)`, indexed by the quantity number `IVTYPE`. COAWST added

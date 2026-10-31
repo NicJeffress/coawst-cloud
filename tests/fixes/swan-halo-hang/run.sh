@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test of 1-fixes/swan-halo-hang.patch: SWAN's halo exchange deadlocked once a
-# halo row was longer than MPI's eager limit (item 20).
+# halo row was longer than MPI's eager limit (halo_exchange_nonblocking).
 #
 #   tests/fixes/swan-halo-hang/run.sh OUTDIR [TIMEOUT_S]
 #

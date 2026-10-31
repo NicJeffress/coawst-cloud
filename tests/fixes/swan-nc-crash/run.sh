@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test of 1-fixes/swan-nc-crash.patch: SWAN's NetCDF output read and wrote past
-# the end of a file name (item 1), and its NetCDF name table was indexed past
-# its end (item 2a).
+# the end of a file name (nc_filename_length), and its NetCDF name table was indexed past
+# its end (stnames_size).
 #
 #   tests/fixes/swan-nc-crash/run.sh OUTDIR
 #

@@ -5,7 +5,7 @@
 | **Type** | fix |
 | **Changes results?** | no (a deadlock fix: the data exchanged and their order are unchanged) |
 | **Default** | on |
-| **Files** | `SWAN/src/swanparll.ftn` (`SWEXCHG`, the wavefront version COAWST builds; item 20) |
+| **Files** | `SWAN/src/swanparll.ftn` (`SWEXCHG`, the wavefront version COAWST builds; `halo_exchange_nonblocking`) |
 | **Evidence** | periodic channel with 1100-point rows on 2 SWAN processes: stock hangs, patched finishes and equals 1 process (results below) |
 | **Test** | [`tests/fixes/swan-halo-hang/run.sh`](../../../../tests/fixes/swan-halo-hang/run.sh) |
 | **Upstream** | a SWAN 41.51 bug; not reported |

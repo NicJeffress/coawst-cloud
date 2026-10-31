@@ -45,7 +45,7 @@ matters, the fix, how it was found, the test and its results, and its limits.
 | [swan-exact-restart](1-fixes/swan-exact-restart.md) | SWAN's periodic restart files were always text and held only the spectra, so restarted runs drifted | restarts only (now exact) | standalone SWAN, 40 min straight vs 20 + 20 restarted |
 
 The SWAN patches are written by [`generators/make_swan_patches.py`](generators/make_swan_patches.py)
-from the unpatched SWAN source; the item numbers in their documents are its
-items.
+from the unpatched SWAN source; each change in their documents is named as
+its function there (`change_<name>`).
 
 More fixes (SWAN, vegetation, wet/dry Stokes transport, restarts) follow.

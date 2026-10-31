@@ -5,7 +5,7 @@
 | **Type** | fix |
 | **Changes results?** | no (run control: a run that used to carry on after a SWAN input error now stops) |
 | **Default** | on (`SET MAXERR` in the SWAN input still lets a user accept errors on purpose) |
-| **Files** | `SWAN/src/waves_control.ftn` (item 5) |
+| **Files** | `SWAN/src/waves_control.ftn` (`stop_on_input_errors`) |
 | **Evidence** | Inlet_test with an output request SWAN refuses: stock carries on and goes out of bounds; patched stops with a message (results below) |
 | **Test** | [`tests/fixes/swan-stop-on-input-errors/run.sh`](../../../../tests/fixes/swan-stop-on-input-errors/run.sh) |
 | **Upstream** | not yet reported to COAWST |

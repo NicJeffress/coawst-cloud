@@ -1,21 +1,21 @@
 #!/bin/bash
 # Test of 1-fixes/swan-periodic-fixes.patch: SWAN with periodic lateral
-# boundaries (COORDINATES ... REPEATING), items 11, 12 and 15.
+# boundaries (COORDINATES ... REPEATING), periodic_compgrid_frame, periodic_y_strips and periodic_coupled_stokes.
 #
 #   tests/fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR
 #
 # SOURCE: a COAWST tree or tarball at the pinned commit (for the source check).
 #   1. Source check (check_source.py), before and after the patch:
-#      item 12 every test that cuts the grid into x-strips excludes periodic grids
-#      item 15 the coupler takes the spectral Stokes fields through the same
+#      periodic_y_strips every test that cuts the grid into x-strips excludes periodic grids
+#      periodic_coupled_stokes the coupler takes the spectral Stokes fields through the same
 #              index map as the other wave fields
 #   2. Standalone SWAN (tests/cases/Swan_Periodic_Test), an A15-like reef with
 #      a pass, periodic in x, waves from 20 deg east of north, 1 h
 #      (make_inputs.py): grids 'wide' (200 x 121 points: x-strips) and 'tall'
 #      (100 x 121: y-strips), each with 1 and 4 SWAN processes (check_runs.py):
-#        item 12 wide, 4 processes = 1 process (before: crash or garbage)
-#        item 11 COMPGRID output = output on the grid points, none missing
-#   Item 15 needs a coupled periodic run; it is run with the periodic
+#        periodic_y_strips wide, 4 processes = 1 process (before: crash or garbage)
+#        periodic_compgrid_frame COMPGRID output = output on the grid points, none missing
+#   periodic_coupled_stokes needs a coupled periodic run; it is run with the periodic
 #   curvilinear grids of A15 (2-improvements/swan-periodic-curvilinear).
 # Needs Docker and Python with numpy and netCDF4 (PYTHON). About 20 min.
 set -euo pipefail

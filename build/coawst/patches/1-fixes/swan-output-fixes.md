@@ -5,15 +5,15 @@
 | **Type** | fix |
 | **Changes results?** | output only: what is written changes, the wave computation does not |
 | **Default** | on |
-| **Files** | `SWAN/src/swanparll.ftn` (item 6), `SWAN/src/swanout2.ftn` (item 7), `SWAN/src/swanout1.ftn` (item 14) |
+| **Files** | `SWAN/src/swanparll.ftn` (`table_nc_coordinates`), `SWAN/src/swanout2.ftn` (`compgrid_nc_coordinates`), `SWAN/src/swanout1.ftn` (`output_obstacle_flags`) |
 | **Evidence** | Inlet_test with extra output requests: three checks bad before, all ok after (results below) |
 | **Test** | [`tests/fixes/swan-output-fixes/run.sh`](../../../../tests/fixes/swan-output-fixes/run.sh) |
-| **Upstream** | item 6 is in SWAN 41.51 itself; none reported yet |
+| **Upstream** | `table_nc_coordinates` is in SWAN 41.51 itself; none reported yet |
 
 Three independent bugs in SWAN's output; none changes the computed waves, but
 each makes output files wrong in ways that are easy to miss.
 
-## Item 6: TABLE output to NetCDF from several SWAN processes put every point at the grid origin
+## `table_nc_coordinates`: TABLE output to NetCDF from several SWAN processes put every point at the grid origin
 
 With more than one SWAN process, each process writes its piece of a `TABLE`
 and `SWCOLBLK` merges them. For NetCDF tables it wrote the coordinates of the
@@ -24,7 +24,7 @@ point came out at the same wrong place (x = 0, y = 0 for Inlet_test's point at
 Fix: `SWCOLOUT` passes the output points' coordinates (`XP`, `YP`) to
 `SWCOLBLK`, which uses them for `TABLE` files.
 
-## Item 7: BLOCK output on the computational grid had x, y = -1e10 at inactive points with one SWAN process
+## `compgrid_nc_coordinates`: BLOCK output on the computational grid had x, y = -1e10 at inactive points with one SWAN process
 
 With one process, `BLOCK 'COMPGRID' ... .nc` took the `x`/`y` variables from
 SWAN's `XP`/`YP` output quantities, which are set to the exception value
@@ -37,7 +37,7 @@ Fix: with one process, `SWBLOK` writes the grid coordinates as well
 (`XCGRID + XOFFS`, as `SWCOLBLK` does). Other output frames keep `XP`/`YP`,
 which have no exception values there.
 
-## Item 14: output between grid points was randomly missing
+## `output_obstacle_flags`: output between grid points was randomly missing
 
 To give a value at a point between grid points, `SWIPOL` interpolates from
 the surrounding grid corners, leaving out corners that an obstacle separates
@@ -62,12 +62,12 @@ before.
 and after the patch, with 1 and with 2 SWAN processes, plus 9 output points
 between grid points written as a text `TABLE` and as a NetCDF `TABLE`.
 `MALLOC_PERTURB_` (a glibc setting) fills newly allocated memory with a
-non-zero pattern, so the uninitialised flags of item 14 read "true" every time
+non-zero pattern, so the uninitialised flags of `output_obstacle_flags` read "true" every time
 instead of at random; correct code is not affected by it. `check.py` checks:
 
-- item 6: the NetCDF table from 2 SWAN processes has the points' coordinates;
-- item 7: `hsig.nc` from 1 SWAN process has no -1e10 coordinates;
-- item 14: no missing values in the text table, with 1 or 2 processes.
+- `table_nc_coordinates`: the NetCDF table from 2 SWAN processes has the points' coordinates;
+- `compgrid_nc_coordinates`: `hsig.nc` from 1 SWAN process has no -1e10 coordinates;
+- `output_obstacle_flags`: no missing values in the text table, with 1 or 2 processes.
 
 ## Engine test results
 
@@ -77,19 +77,19 @@ PASS:
 
 ```
 == before the patch
-item 6   TABLE .nc, 2 SWAN: point coordinates          x[0..2] = 0, 200, 400        BAD
-item 7   BLOCK COMPGRID .nc, 1 SWAN: x/y exception     211 points at -1e10          BAD
-item 14  TABLE text between grid points, 1 SWAN        53 of 63 values = -9         BAD
-item 14  TABLE text between grid points, 2 SWAN        56 of 63 values = -9         BAD
+table_nc_coordinates  TABLE .nc, 2 SWAN: point coordinates          x[0..2] = 0, 200, 400        BAD
+compgrid_nc_coordinates  BLOCK COMPGRID .nc, 1 SWAN: x/y exception     211 points at -1e10          BAD
+output_obstacle_flags  TABLE text between grid points, 1 SWAN        53 of 63 values = -9         BAD
+output_obstacle_flags  TABLE text between grid points, 2 SWAN        56 of 63 values = -9         BAD
 == after the patch
-item 6   TABLE .nc, 2 SWAN: point coordinates          x[0..2] = 4930, 5070, 5210   ok
-item 7   BLOCK COMPGRID .nc, 1 SWAN: x/y exception     0 points at -1e10            ok
-item 14  TABLE text between grid points, 1 SWAN        0 of 63 values = -9          ok
-item 14  TABLE text between grid points, 2 SWAN        0 of 63 values = -9          ok
+table_nc_coordinates  TABLE .nc, 2 SWAN: point coordinates          x[0..2] = 4930, 5070, 5210   ok
+compgrid_nc_coordinates  BLOCK COMPGRID .nc, 1 SWAN: x/y exception     0 points at -1e10            ok
+output_obstacle_flags  TABLE text between grid points, 1 SWAN        0 of 63 values = -9          ok
+output_obstacle_flags  TABLE text between grid points, 2 SWAN        0 of 63 values = -9          ok
 ```
 
-Item 6 before: the 9 points got the x coordinates of the first grid cells
-(0, 200, 400 m, ...). Item 14 before: with every flag reading "true", most
+`table_nc_coordinates` before: the 9 points got the x coordinates of the first grid cells
+(0, 200, 400 m, ...). `output_obstacle_flags` before: with every flag reading "true", most
 values between grid points are missing (why a few are not was not traced);
 without `MALLOC_PERTURB_` the number missing varies from run to run (4 of 9
 points in the original finding).

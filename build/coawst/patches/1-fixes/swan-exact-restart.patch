@@ -4,7 +4,7 @@
        integer, dimension(:,:), pointer :: myschild
  #endif
        integer, dimension(:), pointer :: SwanRstFnum
-+!  SWAN patch item 19: SwanRstUnf, RESTART files binary (exact);
++!  swan-exact-restart: SwanRstUnf, RESTART files binary (exact);
 +!  HotFull, HotCompda, HotAc2: the full state read by INIT HOTSTART
 +!  ... UNFormatted, restored in SWAN_RUN at IT = 0 (one grid only)
 +      logical, dimension(:), pointer :: SwanRstUnf
@@ -29,7 +29,7 @@
  !  Prevent call to output for a stationary run during 
  !  first call to swan_run.
  !
-+!     SWAN patch item 19: the full state of an exact restart, after the
++!     swan-exact-restart: the full state of an exact restart, after the
 +!     IT = 0 initialisation and before the output and the first exchange
 +            IF (HotFull .AND. IT.EQ.0) THEN
 +              IF (SIZE(HotCompda,2).EQ.MCMVAR) THEN
@@ -55,7 +55,7 @@
 +!                                                                      *
 +!***********************************************************************
 +!
-+!     SWAN patch item 19: after a coupling exchange at which a binary
++!     swan-exact-restart: after a coupling exchange at which a binary
 +!     restart file was written, append COMPDA (the exchange put ROMS's
 +!     fields into it). After the first exchange of a run started from
 +!     such a file, first put back the COMPDA of the uninterrupted run.
@@ -114,7 +114,7 @@
             ENDDO
           ENDIF
 +#ifdef SWAN_MODEL
-+!        full SWAN state of RESTART ... UNFormatted (SWAN patch item 19),
++!        full SWAN state of RESTART ... UNFormatted (swan-exact-restart),
 +!        put back in SWAN_RUN at IT = 0
 +         READ (NREF, IOSTAT=IOS) N1, N2, N3, N4
 +         IF (IOS.EQ.0 .AND. N1.EQ.MCGRD .AND. N3.EQ.MDC .AND.
@@ -168,7 +168,7 @@
  !
        NREF   = SwanRstFnum(ng)
        IOSTAT = 0
-+!     UNFormatted (SWAN patch item 19): the binary HOTFILE layout, exact,
++!     UNFormatted (swan-exact-restart): the binary HOTFILE layout, exact,
 +!     then MCGRD, MCMVAR, MDC, MSC, COMPDA and AC2 for an exact restart
 +      IF (SwanRstUnf(ng)) THEN
 +       CALL FOR (NREF, SwanRstName(ng), 'UU', IOSTAT)
@@ -233,7 +233,7 @@
  !
          CALL SWSYNC
          CALL SWAN_CPL (0)
-+!     SWAN patch item 19: COMPDA after the exchange (exact restarts)
++!     swan-exact-restart: COMPDA after the exchange (exact restarts)
 +        DO ng=1,NUM_SGRIDS
 +          CALL SWAN_RST_POST (0)
 +        END DO
@@ -253,7 +253,7 @@
 -        END IF
 -#endif
 +!     restart files hold the state the coupling exchange uses, then
-+!     COMPDA after it (SWAN patch item 19)
++!     COMPDA after it (swan-exact-restart)
          DO ng=1,NUM_SGRIDS
            IF (run_grid(1).eq.1) THEN
              CALL SWAN_RST (iics(ng))

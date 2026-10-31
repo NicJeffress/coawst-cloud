@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test of 1-fixes/swan-exact-restart.patch: a run restarted from SWAN's periodic
-# restart files must reproduce the uninterrupted run (item 19).
+# restart files must reproduce the uninterrupted run (exact_restart).
 #
 #   tests/fixes/swan-exact-restart/run.sh OUTDIR
 #

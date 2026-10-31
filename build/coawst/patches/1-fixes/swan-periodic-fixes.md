@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Type** | fix |
-| **Changes results?** | yes, for SWAN with `COORDINATES ... REPEATING`: output on the computational grid (item 11), runs with several SWAN processes (item 12, crashed before), coupled periodic runs with spectral Stokes drift (item 15); non-periodic runs are unchanged bit for bit |
+| **Changes results?** | yes, for SWAN with `COORDINATES ... REPEATING`: output on the computational grid (`periodic_compgrid_frame`), runs with several SWAN processes (`periodic_y_strips`, crashed before), coupled periodic runs with spectral Stokes drift (`periodic_coupled_stokes`); non-periodic runs are unchanged bit for bit |
 | **Default** | on |
-| **Files** | `swanpre1.ftn` (item 11); `swanparll.ftn`, `swancom1.ftn`, `swanmain.ftn`, `swanpre3.ftn`, `waves_coupler.ftn` (item 12); `waves_coupler.ftn` (item 15) |
-| **Evidence** | standalone periodic SWAN: COMPGRID output complete and on the grid points, 4 processes = 1 process (crashed before); source check of items 12 and 15 (results below) |
+| **Files** | `swanpre1.ftn` (`periodic_compgrid_frame`); `swanparll.ftn`, `swancom1.ftn`, `swanmain.ftn`, `swanpre3.ftn`, `waves_coupler.ftn` (`periodic_y_strips`); `waves_coupler.ftn` (`periodic_coupled_stokes`) |
+| **Evidence** | standalone periodic SWAN: COMPGRID output complete and on the grid points, 4 processes = 1 process (crashed before); source check of `periodic_y_strips` and `periodic_coupled_stokes` (results below) |
 | **Test** | [`tests/fixes/swan-periodic-fixes/run.sh`](../../../../tests/fixes/swan-periodic-fixes/run.sh) |
 | **Upstream** | not reported (SWAN's manual calls `REPEATING` "only for academic cases") |
 
@@ -22,7 +22,7 @@ coupled run both models can be periodic. In COAWST v3.9 the option worked
 only in the simplest case (serial SWAN, output on explicitly defined frames,
 no coupling).
 
-## Item 11: output on the computational grid missed half its points
+## `periodic_compgrid_frame`: output on the computational grid missed half its points
 
 With `REPEATING` a regular grid has MXC points at x = 0 ... XCLEN - DX (the
 point at x = XCLEN is x = 0 again), but SWAN's built-in `COMPGRID` output frame
@@ -33,7 +33,7 @@ fields it sends to ROMS on the same frame, so a periodic coupled run would also
 have sent ROMS misplaced and missing wave fields. Fix: frame length
 XCLEN - DX when `REPEATING`.
 
-## Item 12: several SWAN processes crashed on periodic grids longer in x than in y
+## `periodic_y_strips`: several SWAN processes crashed on periodic grids longer in x than in y
 
 SWAN cuts its grid into strips across the longer side, x-strips if
 MXC > MYC. Its halo exchange and sweep pipeline never wrap around in x, so
@@ -45,7 +45,7 @@ decided at 22 places (partitioner, block administration, sweep pipeline,
 output collection, nesting, COAWST's coupler); each test `MXC > MYC` gets
 `.AND. KREPTX .EQ. 0`.
 
-## Item 15: in coupled periodic runs the spectral Stokes fields reached ROMS shifted
+## `periodic_coupled_stokes`: in coupled periodic runs the spectral Stokes fields reached ROMS shifted
 
 With `REPEATING` the coupling layout has one column more per row than SWAN's
 grid (ROMS's i = 0 ... Lm+1 against SWAN's MXC columns), and the ordinary wave
@@ -64,17 +64,17 @@ runs use the same indices as before.
 `tests/fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR`:
 
 1. **Source check** (`check_source.py`): every x-strip test excludes periodic
-   grids (item 12); the spectral Stokes fields go through `isrc` (item 15).
+   grids (`periodic_y_strips`); the spectral Stokes fields go through `isrc` (`periodic_coupled_stokes`).
 2. **Standalone SWAN** (`tests/cases/Swan_Periodic_Test`, inputs from
    `make_inputs.py`): an A15-like reef with one pass (A15's cross-shore
    profile, `a15_profile.txt`), periodic in x, waves Hs 1 m, Tp 10 s from
    20 deg east of north, 1 h. Grid `wide` (4 km, 200 x 121 points: x-strips
    before the patch) and `tall` (2 km, 100 x 121: y-strips, the control), each
    with 1 and 4 SWAN processes. Checks: 4 processes give the 1-process Hs
-   (item 12); `COMPGRID` output equals output on a frame on the grid points,
-   none missing (item 11).
+   (`periodic_y_strips`); `COMPGRID` output equals output on a frame on the grid points,
+   none missing (`periodic_compgrid_frame`).
 
-Item 15 shows only in a coupled periodic run. A15, where it was found, has a
+`periodic_coupled_stokes` shows only in a coupled periodic run. A15, where it was found, has a
 curvilinear SWAN grid, and periodic curvilinear grids come with
 `2-improvements/swan-periodic-curvilinear.patch`; the coupled run is part of
 that patch's test.
@@ -86,29 +86,29 @@ Run 2026-10-30/31 on the control VM; "before" is the series up to this patch
 
 ```
 == 1. source check
-before: item 12  x-strip tests (MXC > MYC): 22, without KREPTX.EQ.0: 22   BAD
-        item 15  spectral Stokes fields taken through: ['points']         BAD
-after:  item 12  ... without KREPTX.EQ.0: 0                               ok
-        item 15  ... taken through: ['isrc']                              ok
+before: periodic_y_strips  x-strip tests (MXC > MYC): 22, without KREPTX.EQ.0: 22   BAD
+        periodic_coupled_stokes  spectral Stokes fields taken through: ['points']         BAD
+after:  periodic_y_strips  ... without KREPTX.EQ.0: 0                               ok
+        periodic_coupled_stokes  ... taken through: ['isrc']                              ok
 == 2. standalone periodic SWAN, Hs after 1 h
-before: item 12  wide (x-strips): 4 vs 1 processes  max |diff| 1.35 m,
+before: periodic_y_strips  wide (x-strips): 4 vs 1 processes  max |diff| 1.35 m,
                  Hs max 0.0198 m (the 4-process run is garbage)           BAD
-        item 12  tall (y-strips, control): 4 vs 1   bit-identical         ok
-        item 11  wide: COMPGRID vs grid points      0 missing, values differ BAD
-        item 11  tall: COMPGRID vs grid points      0 missing, values differ BAD
-after:  item 12  wide: 4 vs 1 processes             bit-identical         ok
-        item 12  tall: 4 vs 1 processes             bit-identical         ok
-        item 11  wide, tall: COMPGRID vs grid points  identical, 0 missing  ok
+        periodic_y_strips  tall (y-strips, control): 4 vs 1   bit-identical         ok
+        periodic_compgrid_frame  wide: COMPGRID vs grid points      0 missing, values differ BAD
+        periodic_compgrid_frame  tall: COMPGRID vs grid points      0 missing, values differ BAD
+after:  periodic_y_strips  wide: 4 vs 1 processes             bit-identical         ok
+        periodic_y_strips  tall: 4 vs 1 processes             bit-identical         ok
+        periodic_compgrid_frame  wide, tall: COMPGRID vs grid points  identical, 0 missing  ok
 ```
 
-Item 12 before: the 4-process run on the x-strip grid did not crash this time
+`periodic_y_strips` before: the 4-process run on the x-strip grid did not crash this time
 but produced Hs below 0.02 m everywhere (the 1-process run reaches 1.4 m),
-the second failure mode seen in the earlier tests. Item 11 before: COMPGRID
+the second failure mode seen in the earlier tests. `periodic_compgrid_frame` before: COMPGRID
 output was off by up to 0.24 m (wide) and 0.25 m (tall) against the output on
 the grid points, being interpolated between them; no point was missing in
 this run. In the earlier tests (before the output fixes) about half were
 missing; that part was most likely the uninitialised output flags of
-`swan-output-fixes` (item 14), which this series fixes first.
+`swan-output-fixes` (`output_obstacle_flags`), which this series fixes first.
 
 ## Earlier results (2026-10-21, same changes, more cases)
 

@@ -1,22 +1,22 @@
 #!/bin/bash
 # Test of 1-fixes/swan-vegetation-fixes.patch: COAWST's vegetation routine in
-# SWAN (VEGETATION 3, SVEG_COAWST) and SWAN's plant input (items 8, 9, 10, 16, 17).
+# SWAN (VEGETATION 3, SVEG_COAWST) and SWAN's plant input (veg3_young_modulus, veg3_flexible_plants, plant_input_grids, veg3_emergent_cd and dicd_output).
 #
 #   tests/fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR
 #
 # SOURCE: a COAWST tree or tarball at the pinned commit (for the source check).
 #   1. Source check (check_source.py), before and after the patch:
-#      item 9  flexible-plant formulas (second moment of area, Cauchy number)
-#      item 10 plant height/diameter/thickness read on their own input grids
+#      veg3_flexible_plants  flexible-plant formulas (second moment of area, Cauchy number)
+#      plant_input_grids plant height/diameter/thickness read on their own input grids
 #   2. COAWST's Veg_test (ROMS + SWAN, VEG_SWAN_COUPLING) with SWAN's
 #      VEGETATION 1 switched to VEGETATION 3, SWAN bounds-checked
 #      (-fcheck=bounds), 10 min, DICD and DEPTH written every 5 min:
 #        submerged  the case's plants (0.3 m in 1 m of water)
 #        emergent   the same with 1.5 m plants (init file edited)
 #      before: stops at once: Young's modulus VEGYML read but never allocated
-#              (item 8)
-#      after:  runs; DICD is written (item 17) and is the drag method's 1.0
-#              also where plants stick out of the water (item 16; stock: 1.95)
+#              (veg3_young_modulus)
+#      after:  runs; DICD is written (dicd_output) and is the drag method's 1.0
+#              also where plants stick out of the water (veg3_emergent_cd; stock: 1.95)
 # Needs Docker and Python with numpy, scipy and netCDF4 (PYTHON). About 25 min.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -66,7 +66,7 @@ for side in before after; do
 done
 for r in submerged-before emergent-before; do
     if grep -q "array 'vegyml' above upper bound" "$OUT/$r/log.txt"; then
-        echo "   $r: stops, VEGYML never allocated (item 8)          ok"
+        echo "   $r: stops, VEGYML never allocated (veg3_young_modulus)          ok"
     else
         echo "   $r: did not stop at VEGYML                            BAD"; status=1
     fi

@@ -5,7 +5,7 @@
 | **Type** | fix |
 | **Changes results?** | restarts only: a run restarted from `RESTART ... UNFormatted` files now continues exactly as the uninterrupted run; runs without restarts are unchanged |
 | **Default** | on (exact restarts need `UNFormatted` restart files) |
-| **Files** | `swanpre1.ftn`, `swanmain.ftn`, `waves_control.ftn`, `swan_iounits.ftn` (item 19) |
+| **Files** | `swanpre1.ftn`, `swanmain.ftn`, `waves_control.ftn`, `swan_iounits.ftn` (`exact_restart`) |
 | **Evidence** | standalone SWAN, 40 min straight vs 20 + 20 min restarted (results below); coupled with ROMS: see `roms-restart-wec` |
 | **Test** | [`tests/fixes/swan-exact-restart/run.sh`](../../../../tests/fixes/swan-exact-restart/run.sh) |
 | **Upstream** | not reported |
