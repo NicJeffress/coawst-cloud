@@ -17,7 +17,7 @@ prints `IDENTICAL: <n> files` or the files that differ.
 
 ## Tests of the patches
 
-One folder per patch under `fixes/` (later `improvements/`, `experimental/`),
+One folder per patch under `fixes/`, `improvements/` (later `experimental/`),
 with a `run.sh` that builds what it needs before and after the patch, runs it,
 compares, and prints PASS or FAIL. The results are written up in the patch's
 document (`build/coawst/patches/<tier>/<patch>.md`).
@@ -38,6 +38,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-periodic-fixes/run_a15_coupled.sh SOURCE OUTDIR` | swan-periodic-fixes (`periodic_coupled_stokes`) | coupled periodic Reef_Ideal_A15 with and without the change: blow-up before, clean after | 40 min |
 | `fixes/swan-halo-hang/run.sh OUTDIR [TIMEOUT_S]` | swan-halo-hang | periodic channel with 1100-point rows on 2 SWAN processes: hangs before, finishes after | 15 min |
 | `fixes/swan-exact-restart/run.sh OUTDIR` | swan-exact-restart | standalone SWAN, straight vs restarted, binary and text restart files | 15 min |
+| `improvements/swan-netcdf-output/run.sh OUTDIR` | swan-netcdf-output | Inlet_test, each quantity as .nc and .mat: run bit-identical, .nc exact after, 18 more quantities | 10 min |
 
 ## Test cases
 

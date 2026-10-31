@@ -23,3 +23,6 @@
 1-fixes/swan-periodic-fixes.patch
 1-fixes/swan-halo-hang.patch
 1-fixes/swan-exact-restart.patch
+
+# 2. Improvements
+2-improvements/swan-netcdf-output.patch

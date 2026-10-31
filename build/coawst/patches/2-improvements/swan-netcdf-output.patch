@@ -1,0 +1,841 @@
+--- a/SWAN/src/agioncmd.ftn90
++++ b/SWAN/src/agioncmd.ftn90
+@@ -639,7 +639,7 @@
+             ! if datamin equals datamax in an integer kind of way, do not apply scaling
+             rng = (trecord%datamax - trecord%datamin)
+             add_offset = (trecord%datamin + trecord%datamax) * .5
+-            if ( rng /= 0 ) then
++            if ( rng /= 0 .and. trecord%nctype /= NF90_FLOAT ) then
+                 select case ( trecord%nctype )
+                 case (NF90_BYTE)
+                     scale_factor = rng/(2**8-2)
+--- a/SWAN/src/nctablemd.ftn90
++++ b/SWAN/src/nctablemd.ftn90
+@@ -42,7 +42,7 @@
+             integer                                  :: varid
+         end type nctable_record
+ 
+-        type (nctable_record)                        :: nctable(66)
++        type (nctable_record)                        :: nctable(162)
+ 
+         data nctable(1) / nctable_record("depth",&
+                             "sea_floor_depth_below_sea_level",&
+@@ -51,143 +51,143 @@
+              nctable(2) / nctable_record("xcur",&
+                             "eastward_sea_water_velocity",&
+                             "x component of current", &
+-                            "m s-1", NF90_SHORT, -20., 20., variddum) /, &
++                            "m s-1", NF90_FLOAT, -20., 20., variddum) /, &
+              nctable(3) / nctable_record("ycur",&
+                             "northward_sea_water_velocity",&
+                             "y component of current", &
+-                            "m s-1", NF90_SHORT, -20., 20., variddum) /, &
++                            "m s-1", NF90_FLOAT, -20., 20., variddum) /, &
+              nctable(4) / nctable_record("xwnd",&
+                             "eastward_wind",&
+                             "U-Component of Wind", &
+-                            "m s-1", NF90_SHORT, -100., 100., variddum) /, &
++                            "m s-1", NF90_FLOAT, -100., 100., variddum) /, &
+              nctable(5) / nctable_record("ywnd",&
+                             "northward_wind",&
+                             "V-Component of Wind", &
+-                            "m s-1", NF90_SHORT, -100., 100., variddum) /, &
++                            "m s-1", NF90_FLOAT, -100., 100., variddum) /, &
+              nctable(6) / nctable_record("astd",&
+                             "none",&
+                             "air sea temperature difference (k)", &
+-                            "k", NF90_BYTE, 0, 0, variddum) /, &
++                            "k", NF90_FLOAT, 0, 0, variddum) /, &
+              nctable(7) / nctable_record("ustar",&
+                             "none",&
+                             "friction velocity", &
+-                            "m s-1", NF90_SHORT, 0, 20, variddum) /,&
++                            "m s-1", NF90_FLOAT, 0, 20, variddum) /,&
+              nctable(8) / nctable_record("hs",&
+                             "sea_surface_wave_significant_height",&
+                             "hs", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(9) / nctable_record("L",&
+                             "none",&
+                             "average wave length", &
+-                            "m", NF90_SHORT, 0., 1000., variddum) /, &
++                            "m", NF90_FLOAT, 0., 1000., variddum) /, &
+              nctable(10) / nctable_record("theta0",&
+                             "sea_surface_wave_from_direction",&
+                             "theta0", &
+-                            "degrees", NF90_SHORT, 0., 360., variddum) /, &
++                            "degrees", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(11) / nctable_record("tmm10",&
+                             "sea_surface_wave_mean_period_from_variance_spectral_density_inverse_frequency_moment",&
+                             "tm-10", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(12) / nctable_record("thetam",&
+                             "none",&
+                             "thetam", &
+-                            "degrees", NF90_BYTE, 0, 0, variddum) /, &
++                            "degrees", NF90_FLOAT, 0, 0, variddum) /, &
+              nctable(13) / nctable_record("tp",&
+                             "none",&
+                             "tp", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(14) / nctable_record("thetap",&
+                             "none",&
+                             "thetap", &
+-                            "degrees", NF90_SHORT, 0., 360., variddum) /,&
++                            "degrees", NF90_FLOAT, 0., 360., variddum) /,&
+              nctable(15) / nctable_record("fpl",&
+                             "none",&
+                             "peak frequency of wind sea part of spectrum", &
+-                            "s-1", NF90_BYTE, 0., 10., variddum) /,&
++                            "s-1", NF90_FLOAT, 0., 10., variddum) /,&
+              nctable(16) / nctable_record("dpl",&
+                             "none",&
+                             "direction of peak frequency of wind sea part of spectrum", &
+-                            "degrees", NF90_BYTE, 0., 360., variddum) /,&
++                            "degrees", NF90_FLOAT, 0., 360., variddum) /,&
+              nctable(17) / nctable_record("sign_wave_height_partitions",&
+                             "none",&
+                             "hs of partitions. does this mean that i have an extra dimension???", &
+-                            "m", NF90_SHORT, 0., 30., variddum) /, &
++                            "m", NF90_FLOAT, 0., 30., variddum) /, &
+              nctable(18) / nctable_record("tp_partitions",&
+                             "none",&
+                             "relative peak periods of partitions of the spectrum", &
+-                            "s", NF90_BYTE, 0., 24., variddum) /,&
++                            "s", NF90_FLOAT, 0., 24., variddum) /,&
+              nctable(19) / nctable_record("tp_length_partitions",&
+                             "none",&
+                             "peak wave lengths of partitions of the spectrum", &
+-                            "s", NF90_SHORT, 0, 0, variddum) /,&
++                            "s", NF90_FLOAT, 0, 0, variddum) /,&
+              nctable(20) / nctable_record("theta0_partitions",&
+                             "none",&
+                             "mean wave direction of partitions of spectrum", &
+-                            "degrees", NF90_BYTE, 0., 360., variddum) /,&
++                            "degrees", NF90_FLOAT, 0., 360., variddum) /,&
+              nctable(21) / nctable_record("spread_partitions",&
+                             "none",&
+                             "directional spread of partition of spectrum cf", &
+-                            "degrees", NF90_BYTE, 0, 81, variddum) /, &
++                            "degrees", NF90_FLOAT, 0, 81, variddum) /, &
+              nctable(22) / nctable_record("wind_sea_fraction_partitions",&
+                             "none",&
+                             "wind sea fraction of partitions of spectrum", &
+-                            "1", NF90_SHORT, 0., 1., variddum) /,&
++                            "1", NF90_FLOAT, 0., 1., variddum) /,&
+              nctable(23) / nctable_record("wind_sea_fraction",&
+                             "none",&
+                             "wind sea fraction of entire spectrum", &
+-                            "1", NF90_SHORT, 0., 1., variddum) /,&
++                            "1", NF90_FLOAT, 0., 1., variddum) /,&
+              nctable(24) / nctable_record("npartitions",&
+                             "none",&
+                             "number of partitions found in spectrum", &
+-                            "1", NF90_BYTE, 0, 0, variddum) /,&
++                            "1", NF90_FLOAT, 0, 0, variddum) /,&
+              nctable(25) / nctable_record("source_term_timestep",&
+                             "none",&
+                             "average timestep in the source term integration", &
+-                            "s", NF90_SHORT, 0, 0, variddum) /,&
++                            "s", NF90_FLOAT, 0, 0, variddum) /,&
+              nctable(26) / nctable_record("cut_off_frequency",&
+                             "none",&
+                             "cut-off frequency", &
+-                            "s-1", NF90_SHORT, 0., 40., variddum) /,&
++                            "s-1", NF90_FLOAT, 0., 40., variddum) /,&
+              nctable(27) / nctable_record("icec",&
+                             "sea_ice_area_fraction",&
+                             "ice cover", &
+-                            "1", NF90_BYTE, 0., 1., variddum) /,&
++                            "1", NF90_FLOAT, 0., 1., variddum) /,&
+              nctable(28) / nctable_record("ssh",&
+                             "sea_surface_height",&
+                             "SSH", &
+-                            "m", NF90_SHORT, -15., 15., variddum) /, &
++                            "m", NF90_FLOAT, -15., 15., variddum) /, &
+              nctable(29) / nctable_record("landmask",&
+                             "land_binary_mask",&
+                             "land cover (1=land, 0=sea)", &
+-                            "m", nf90_byte, 0, 0, variddum) /, &
++                            "m", NF90_FLOAT, 0, 0, variddum) /, &
+              nctable(30) / nctable_record("tm02",&
+                             "sea_surface_wave_mean_period_from_variance_spectral_density_second_frequency_moment", &
+                             "tm02", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(31) / nctable_record("tm01",&
+                             "sea_surface_wave_mean_period_from_variance_spectral_density_first_frequency_moment", &
+                             "tm01", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(32) / nctable_record("tps",&
+                             "none",&
+                             "tps", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(33) / nctable_record("spread",&
+                             "none",&
+                             "directional spreading", &
+-                            "degrees", NF90_SHORT, 0., 360., variddum) /, &
++                            "degrees", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(34) / nctable_record("rtm01",&
+                             "none", &
+                             "rtm01", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(35) / nctable_record("hswe",&
+                             "sea_surface_swell_wave_significant_height",&
+                             "wave height of swell part", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(36) / nctable_record("rtmm10",&
+                             "none",&
+                             "rtm-10", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(37) / nctable_record("botl",&
+                             "none",&
+                             "depth below still water level", &
+@@ -195,119 +195,503 @@
+              nctable(38) / nctable_record("ubot",&
+                             "none",&
+                             "orbital velocity near bottom", &
+-                            "m s-1", NF90_SHORT, 0, 15, variddum) /, &
++                            "m s-1", NF90_FLOAT, 0, 15, variddum) /, &
+              nctable(39) / nctable_record("urms",&
+                             "none",&
+                             "rms of orbital velocity near bottom", &
+-                            "m s-1", NF90_SHORT, 0, 5, variddum) /, &
++                            "m s-1", NF90_FLOAT, 0, 5, variddum) /, &
+              nctable(40) / nctable_record("dhs",&
+                             "none",&
+                             "dHs", &
+-                            "m", NF90_SHORT, 0, 25, variddum) /, &
++                            "m", NF90_FLOAT, 0, 25, variddum) /, &
+              nctable(41) / nctable_record("dtm",&
+                             "none",&
+                             "dTm", &
+-                            "s", NF90_SHORT, 0, 25, variddum) /, &
++                            "s", NF90_FLOAT, 0, 25, variddum) /, &
+              nctable(42) / nctable_record("cdrag",&
+                             "none",&
+                             "Cdrag", &
+-                            "1", NF90_SHORT, 0., 20., variddum) /, &
++                            "1", NF90_FLOAT, 0., 20., variddum) /, &
+              nctable(43) / nctable_record("phs0",&
+                             "sea_surface_wind_wave_significant_height",&
+                             "sea surface wind wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(44) / nctable_record("phs1",&
+                             "sea_surface_primary_swell_wave_significant_height",&
+                             "sea surface primary_swell wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(45) / nctable_record("phs2",&
+                             "sea_surface_secondary_swell_wave_significant_height",&
+                             "sea surface secondary_swell wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(46) / nctable_record("phs3",&
+                             "sea_surface_tertiary_swell_wave_significant_height",&
+                             "sea surface tertiary_swell wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(47) / nctable_record("phs4",&
+                             "sea_surface_quaternary_swell_wave_significant_height",&
+                             "sea surface quaternary_swell wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(48) / nctable_record("phs5",&
+                             "sea_surface_quinary_swell_wave_significant_height",&
+                             "sea surface quinary_swell wave significant height", &
+-                            "m", NF90_SHORT, 0., 50., variddum) /, &
++                            "m", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(49) / nctable_record("ptp0",&
+                             "sea_surface_wind_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface wind wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(50) / nctable_record("ptp1",&
+                             "sea_surface_primary_swell_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface primary swell wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(51) / nctable_record("ptp2",&
+                             "sea_surface_secondary_swell_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface secondary swell wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(52) / nctable_record("ptp3",&
+                             "sea_surface_tertiary_swell_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface tertiary swell wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(53) / nctable_record("ptp4",&
+                             "sea_surface_quaternary_swell_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface quaternary swell wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(54) / nctable_record("ptp5",&
+                             "sea_surface_quinary_swell_wave_period_at_variance_spectral_density_maximum",&
+                             "sea surface quinary swell wave period at variance spectral density maximum", &
+-                            "s", NF90_SHORT, 0., 50., variddum) /, &
++                            "s", NF90_FLOAT, 0., 50., variddum) /, &
+              nctable(55) / nctable_record("pdir0",&
+                             "sea_surface_wind_wave_mean_from_direction",&
+                             "sea surface wind wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(56) / nctable_record("pdir1",&
+                             "sea_surface_primary_swell_wave_mean_from_direction",&
+                             "sea surface primary swell wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(57) / nctable_record("pdir2",&
+                             "sea_surface_secondary_swell_wave_mean_from_direction",&
+                             "sea surface secondary swell wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(58) / nctable_record("pdir3",&
+                             "sea_surface_tertiary_swell_wave_mean_from_direction",&
+                             "sea surface tertiary swell wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(59) / nctable_record("pdir4",&
+                             "sea_surface_quaternary_swell_wave_mean_from_direction",&
+                             "sea surface quaternary swell wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(60) / nctable_record("pdir5",&
+                             "sea_surface_quinary_swell_wave_mean_from_direction",&
+                             "sea surface quinary swell wave mean from direction", &
+-                            "degree", NF90_SHORT, 0., 360., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 360., variddum) /, &
+              nctable(61) / nctable_record("pspr0",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
+              nctable(62) / nctable_record("pspr1",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
+              nctable(63) / nctable_record("pspr2",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
+              nctable(64) / nctable_record("pspr3",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
+              nctable(65) / nctable_record("pspr4",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /, &
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
+              nctable(66) / nctable_record("pspr5",&
+                             "none",&
+                             "directional spread of partition", &
+-                            "degree", NF90_SHORT, 0., 81., variddum) /
++                            "degree", NF90_FLOAT, 0., 81., variddum) /, &
++             nctable(67) / nctable_record("dissip",&
++                            "none",&
++                            "total wave energy dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(68) / nctable_record("qb",&
++                            "none",&
++                            "fraction of breaking waves", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(69) / nctable_record("leak",&
++                            "none",&
++                            "energy leak over spectral boundaries (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(70) / nctable_record("tdir",&
++                            "none",&
++                            "direction of the energy transport", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(71) / nctable_record("steepness",&
++                            "none",&
++                            "wave steepness", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(72) / nctable_record("xtra",&
++                            "none",&
++                            "x component of wave energy transport (m3 s-1 if INRHOG=0)", &
++                            "W m-1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(73) / nctable_record("ytra",&
++                            "none",&
++                            "y component of wave energy transport (m3 s-1 if INRHOG=0)", &
++                            "W m-1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(74) / nctable_record("xfor",&
++                            "none",&
++                            "x component of wave driven force per unit surface", &
++                            "N m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(75) / nctable_record("yfor",&
++                            "none",&
++                            "y component of wave driven force per unit surface", &
++                            "N m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(76) / nctable_record("fric",&
++                            "none",&
++                            "bottom friction coefficient", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(77) / nctable_record("fspr",&
++                            "none",&
++                            "frequency spectral width (kappa)", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(78) / nctable_record("zlen",&
++                            "none",&
++                            "zero velocity thickness of boundary layer", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(79) / nctable_record("setup",&
++                            "none",&
++                            "setup due to waves", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(80) / nctable_record("per",&
++                            "none",&
++                            "average absolute wave period (PER)", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(81) / nctable_record("rper",&
++                            "none",&
++                            "average relative wave period (RPER)", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(82) / nctable_record("ursell",&
++                            "none",&
++                            "Ursell number", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(83) / nctable_record("difpar",&
++                            "none",&
++                            "diffraction parameter", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(84) / nctable_record("tmbot",&
++                            "none",&
++                            "near bottom wave period", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(85) / nctable_record("disbot",&
++                            "none",&
++                            "bottom friction dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(86) / nctable_record("dissurf",&
++                            "none",&
++                            "surf breaking dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(87) / nctable_record("diswcap",&
++                            "none",&
++                            "whitecapping dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(88) / nctable_record("disveg",&
++                            "none",&
++                            "vegetation dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(89) / nctable_record("qp",&
++                            "none",&
++                            "peakedness of the wave spectrum", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(90) / nctable_record("bfi",&
++                            "none",&
++                            "Benjamin-Feir index", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(91) / nctable_record("genera",&
++                            "none",&
++                            "total energy generation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(92) / nctable_record("genwind",&
++                            "none",&
++                            "wind source term (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(93) / nctable_record("redist",&
++                            "none",&
++                            "total energy redistribution (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(94) / nctable_record("redquad",&
++                            "none",&
++                            "total absolute 4-wave interaction (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(95) / nctable_record("redtriad",&
++                            "none",&
++                            "total absolute 3-wave interaction (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(96) / nctable_record("propagat",&
++                            "none",&
++                            "total energy propagation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(97) / nctable_record("propxy",&
++                            "none",&
++                            "xy-propagation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(98) / nctable_record("propthet",&
++                            "none",&
++                            "theta-propagation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(99) / nctable_record("propsigm",&
++                            "none",&
++                            "sigma-propagation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(100) / nctable_record("radstr",&
++                            "none",&
++                            "energy transfer by radiation stress (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(101) / nctable_record("npl",&
++                            "none",&
++                            "number of plants per square meter", &
++                            "m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(102) / nctable_record("lwavp",&
++                            "none",&
++                            "peak wave length", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(103) / nctable_record("disturb",&
++                            "none",&
++                            "turbulent dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(104) / nctable_record("turb",&
++                            "none",&
++                            "turbulent viscosity", &
++                            "m2 s-1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(105) / nctable_record("dismud",&
++                            "none",&
++                            "fluid mud dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(106) / nctable_record("disswell",&
++                            "none",&
++                            "swell dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(107) / nctable_record("disice",&
++                            "none",&
++                            "sea ice dissipation (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(108) / nctable_record("aice",&
++                            "none",&
++                            "sea ice concentration (fraction)", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(109) / nctable_record("hice",&
++                            "none",&
++                            "sea ice thickness", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(110) / nctable_record("redbragg",&
++                            "none",&
++                            "total absolute Bragg scattering (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(111) / nctable_record("redqcm",&
++                            "none",&
++                            "total absolute quasi-coherent scattering (m2 s-1 if INRHOG=0)", &
++                            "W m-2", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(112) / nctable_record("hig",&
++                            "none",&
++                            "bound infragravity wave height", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(113) / nctable_record("gamma",&
++                            "none",&
++                            "breaker index", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(114) / nctable_record("biphase",&
++                            "none",&
++                            "biphase", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(115) / nctable_record("dirbot",&
++                            "none",&
++                            "average bottom wave direction", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(116) / nctable_record("dicd",&
++                            "none",&
++                            "spectral drag coefficient (vegetation)", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(117) / nctable_record("phs6",&
++                            "none",&
++                            "significant wave height of partition 6", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(118) / nctable_record("ptp6",&
++                            "none",&
++                            "relative peak period of partition 6", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(119) / nctable_record("pdir6",&
++                            "none",&
++                            "mean wave direction of partition 6", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(120) / nctable_record("pspr6",&
++                            "none",&
++                            "directional spread of partition 6", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(121) / nctable_record("phs7",&
++                            "none",&
++                            "significant wave height of partition 7", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(122) / nctable_record("ptp7",&
++                            "none",&
++                            "relative peak period of partition 7", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(123) / nctable_record("pdir7",&
++                            "none",&
++                            "mean wave direction of partition 7", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(124) / nctable_record("pspr7",&
++                            "none",&
++                            "directional spread of partition 7", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(125) / nctable_record("phs8",&
++                            "none",&
++                            "significant wave height of partition 8", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(126) / nctable_record("ptp8",&
++                            "none",&
++                            "relative peak period of partition 8", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(127) / nctable_record("pdir8",&
++                            "none",&
++                            "mean wave direction of partition 8", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(128) / nctable_record("pspr8",&
++                            "none",&
++                            "directional spread of partition 8", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(129) / nctable_record("phs9",&
++                            "none",&
++                            "significant wave height of partition 9", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(130) / nctable_record("ptp9",&
++                            "none",&
++                            "relative peak period of partition 9", &
++                            "s", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(131) / nctable_record("pdir9",&
++                            "none",&
++                            "mean wave direction of partition 9", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(132) / nctable_record("pspr9",&
++                            "none",&
++                            "directional spread of partition 9", &
++                            "degree", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(133) / nctable_record("pwlen0",&
++                            "none",&
++                            "average wave length of partition 0", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(134) / nctable_record("pwfrac0",&
++                            "none",&
++                            "wind fraction of partition 0", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(135) / nctable_record("psteep0",&
++                            "none",&
++                            "wave steepness of partition 0", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(136) / nctable_record("pwlen1",&
++                            "none",&
++                            "average wave length of partition 1", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(137) / nctable_record("pwfrac1",&
++                            "none",&
++                            "wind fraction of partition 1", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(138) / nctable_record("psteep1",&
++                            "none",&
++                            "wave steepness of partition 1", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(139) / nctable_record("pwlen2",&
++                            "none",&
++                            "average wave length of partition 2", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(140) / nctable_record("pwfrac2",&
++                            "none",&
++                            "wind fraction of partition 2", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(141) / nctable_record("psteep2",&
++                            "none",&
++                            "wave steepness of partition 2", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(142) / nctable_record("pwlen3",&
++                            "none",&
++                            "average wave length of partition 3", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(143) / nctable_record("pwfrac3",&
++                            "none",&
++                            "wind fraction of partition 3", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(144) / nctable_record("psteep3",&
++                            "none",&
++                            "wave steepness of partition 3", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(145) / nctable_record("pwlen4",&
++                            "none",&
++                            "average wave length of partition 4", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(146) / nctable_record("pwfrac4",&
++                            "none",&
++                            "wind fraction of partition 4", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(147) / nctable_record("psteep4",&
++                            "none",&
++                            "wave steepness of partition 4", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(148) / nctable_record("pwlen5",&
++                            "none",&
++                            "average wave length of partition 5", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(149) / nctable_record("pwfrac5",&
++                            "none",&
++                            "wind fraction of partition 5", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(150) / nctable_record("psteep5",&
++                            "none",&
++                            "wave steepness of partition 5", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(151) / nctable_record("pwlen6",&
++                            "none",&
++                            "average wave length of partition 6", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(152) / nctable_record("pwfrac6",&
++                            "none",&
++                            "wind fraction of partition 6", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(153) / nctable_record("psteep6",&
++                            "none",&
++                            "wave steepness of partition 6", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(154) / nctable_record("pwlen7",&
++                            "none",&
++                            "average wave length of partition 7", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(155) / nctable_record("pwfrac7",&
++                            "none",&
++                            "wind fraction of partition 7", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(156) / nctable_record("psteep7",&
++                            "none",&
++                            "wave steepness of partition 7", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(157) / nctable_record("pwlen8",&
++                            "none",&
++                            "average wave length of partition 8", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(158) / nctable_record("pwfrac8",&
++                            "none",&
++                            "wind fraction of partition 8", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(159) / nctable_record("psteep8",&
++                            "none",&
++                            "wave steepness of partition 8", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(160) / nctable_record("pwlen9",&
++                            "none",&
++                            "average wave length of partition 9", &
++                            "m", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(161) / nctable_record("pwfrac9",&
++                            "none",&
++                            "wind fraction of partition 9", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /, &
++             nctable(162) / nctable_record("psteep9",&
++                            "none",&
++                            "wave steepness of partition 9", &
++                            "1", NF90_FLOAT, 0., 0., variddum) /
+ 
+     contains
+         subroutine get_nctable_record(varname, trecord, found)
+--- a/SWAN/src/swn_outnc.ftn90
++++ b/SWAN/src/swn_outnc.ftn90
+@@ -1689,6 +1689,104 @@
+         STNAMES(143, 1) = 'pspr3'
+         STNAMES(144, 1) = 'pspr4'
+         STNAMES(145, 1) = 'pspr5'
++        STNAMES(  7, 1) = 'dissip'
++        STNAMES(  8, 1) = 'qb'
++        STNAMES(  9, 1) = 'leak'
++        STNAMES( 15, 1) = 'tdir'
++        STNAMES( 18, 1) = 'steepness'
++        STNAMES( 19, 1) = 'xtra'
++        STNAMES( 19, 2) = 'ytra'
++        STNAMES( 20, 1) = 'xfor'
++        STNAMES( 20, 2) = 'yfor'
++        STNAMES( 27, 1) = 'fric'
++        STNAMES( 33, 1) = 'fspr'
++        STNAMES( 36, 1) = 'zlen'
++        STNAMES( 39, 1) = 'setup'
++        STNAMES( 42, 1) = 'per'
++        STNAMES( 43, 1) = 'rper'
++        STNAMES( 45, 1) = 'ursell'
++        STNAMES( 46, 1) = 'astd'
++        STNAMES( 49, 1) = 'difpar'
++        STNAMES( 50, 1) = 'tmbot'
++        STNAMES( 54, 1) = 'disbot'
++        STNAMES( 55, 1) = 'dissurf'
++        STNAMES( 56, 1) = 'diswcap'
++        STNAMES( 57, 1) = 'disveg'
++        STNAMES( 58, 1) = 'qp'
++        STNAMES( 59, 1) = 'bfi'
++        STNAMES( 60, 1) = 'genera'
++        STNAMES( 61, 1) = 'genwind'
++        STNAMES( 62, 1) = 'redist'
++        STNAMES( 63, 1) = 'redquad'
++        STNAMES( 64, 1) = 'redtriad'
++        STNAMES( 65, 1) = 'propagat'
++        STNAMES( 66, 1) = 'propxy'
++        STNAMES( 67, 1) = 'propthet'
++        STNAMES( 68, 1) = 'propsigm'
++        STNAMES( 69, 1) = 'radstr'
++        STNAMES( 70, 1) = 'npl'
++        STNAMES( 71, 1) = 'lwavp'
++        STNAMES( 72, 1) = 'disturb'
++        STNAMES( 73, 1) = 'turb'
++        STNAMES( 74, 1) = 'dismud'
++        STNAMES( 75, 1) = 'disswell'
++        STNAMES( 76, 1) = 'disice'
++        STNAMES( 77, 1) = 'aice'
++        STNAMES( 78, 1) = 'hice'
++        STNAMES( 79, 1) = 'redbragg'
++        STNAMES( 80, 1) = 'redqcm'
++        STNAMES( 81, 1) = 'hig'
++        STNAMES( 82, 1) = 'gamma'
++        STNAMES( 83, 1) = 'biphase'
++        STNAMES(106, 1) = 'phs6'
++        STNAMES(107, 1) = 'phs7'
++        STNAMES(108, 1) = 'phs8'
++        STNAMES(109, 1) = 'phs9'
++        STNAMES(116, 1) = 'ptp6'
++        STNAMES(117, 1) = 'ptp7'
++        STNAMES(118, 1) = 'ptp8'
++        STNAMES(119, 1) = 'ptp9'
++        STNAMES(120, 1) = 'pwlen0'
++        STNAMES(121, 1) = 'pwlen1'
++        STNAMES(122, 1) = 'pwlen2'
++        STNAMES(123, 1) = 'pwlen3'
++        STNAMES(124, 1) = 'pwlen4'
++        STNAMES(125, 1) = 'pwlen5'
++        STNAMES(126, 1) = 'pwlen6'
++        STNAMES(127, 1) = 'pwlen7'
++        STNAMES(128, 1) = 'pwlen8'
++        STNAMES(129, 1) = 'pwlen9'
++        STNAMES(136, 1) = 'pdir6'
++        STNAMES(137, 1) = 'pdir7'
++        STNAMES(138, 1) = 'pdir8'
++        STNAMES(139, 1) = 'pdir9'
++        STNAMES(146, 1) = 'pspr6'
++        STNAMES(147, 1) = 'pspr7'
++        STNAMES(148, 1) = 'pspr8'
++        STNAMES(149, 1) = 'pspr9'
++        STNAMES(150, 1) = 'pwfrac0'
++        STNAMES(151, 1) = 'pwfrac1'
++        STNAMES(152, 1) = 'pwfrac2'
++        STNAMES(153, 1) = 'pwfrac3'
++        STNAMES(154, 1) = 'pwfrac4'
++        STNAMES(155, 1) = 'pwfrac5'
++        STNAMES(156, 1) = 'pwfrac6'
++        STNAMES(157, 1) = 'pwfrac7'
++        STNAMES(158, 1) = 'pwfrac8'
++        STNAMES(159, 1) = 'pwfrac9'
++        STNAMES(160, 1) = 'psteep0'
++        STNAMES(161, 1) = 'psteep1'
++        STNAMES(162, 1) = 'psteep2'
++        STNAMES(163, 1) = 'psteep3'
++        STNAMES(164, 1) = 'psteep4'
++        STNAMES(165, 1) = 'psteep5'
++        STNAMES(166, 1) = 'psteep6'
++        STNAMES(167, 1) = 'psteep7'
++        STNAMES(168, 1) = 'psteep8'
++        STNAMES(169, 1) = 'psteep9'
++        STNAMES(171, 1) = 'npartitions'
++        STNAMES(200, 1) = 'dirbot'
++        STNAMES(201, 1) = 'dicd'
+         stnames_initialized = .true.
+ 
+     end subroutine stnames_init

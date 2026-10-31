@@ -51,4 +51,10 @@ The SWAN patches are written by [`generators/make_swan_patches.py`](generators/m
 from the unpatched SWAN source; each change in their documents is named as
 its function there (`change_<name>`).
 
-All fixes are in. Improvements and experimental options follow.
+### 2. Improvements
+
+| Patch | What it improves | Changes results? | Test |
+|---|---|---|---|
+| [swan-netcdf-output](2-improvements/swan-netcdf-output.md) | SWAN refused most quantities as NetCDF and stored most others as packed 16-bit integers (Hs in 0.76 mm steps); now every 2-D quantity, as 32-bit float | output only (NetCDF files); the run is bit-identical | Inlet_test, each quantity as .nc and .mat |
+
+More improvements and the experimental options follow.
