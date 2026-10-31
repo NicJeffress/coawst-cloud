@@ -40,6 +40,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-exact-restart/run.sh OUTDIR` | swan-exact-restart | standalone SWAN, straight vs restarted, binary and text restart files | 15 min |
 | `improvements/swan-netcdf-output/run.sh OUTDIR` | swan-netcdf-output | Inlet_test, each quantity as .nc and .mat: run bit-identical, .nc exact after, 18 more quantities | 10 min |
 | `improvements/swan-netcdf4-compression/run.sh OUTDIR` | swan-netcdf4-compression | Inlet_test BLOCK, TABLE and SPECOUT .nc, three builds: identical values, NetCDF-4 + deflate with the options | 15 min |
+| `improvements/swan-periodic-curvilinear/run.sh OUTDIR` | swan-periodic-curvilinear | standalone periodic SWAN on curvilinear grids: same as regular, seam through the pass, processes, output search, refused before | 20 min |
 
 ## Test cases
 

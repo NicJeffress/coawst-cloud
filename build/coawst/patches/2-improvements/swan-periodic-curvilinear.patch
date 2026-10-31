@@ -1,0 +1,511 @@
+--- a/SWAN/src/swancom5.ftn
++++ b/SWAN/src/swancom5.ftn
+@@ -139,8 +139,8 @@
+       DATA IENT/0/
+       IF (LTRACE) CALL STRACE (IENT,'SWGEOM')
+ !
+-      IF (KREPTX.GT.0) THEN                                               33.09
+-!       repeating x-axis (only regular grids)
++      IF (KREPTX.GT.0 .AND. OPTG.EQ.1) THEN
++!       repeating x-axis, regular grid
+         IF (SWPDIR.EQ.1 .OR. SWPDIR.EQ.4) THEN
+           DX1 = DX * COSPC                                                33.09
+           DY1 = DX * SINPC                                                33.09
+@@ -170,6 +170,19 @@
+       ELSE                                                                33.09
+         DX1 = XCGRID(IXCGRD(1),IYCGRD(1)) - XCGRID(IXCGRD(2),IYCGRD(2))
+         DY1 = YCGRID(IXCGRD(1),IYCGRD(1)) - YCGRID(IXCGRD(2),IYCGRD(2))
++!       repeating x-axis, curvilinear grid: the upwind neighbour in x
++!       of column 1 (sweeps 1, 4) is column MXC shifted back by one
++!       period, that of column MXC (sweeps 2, 3) column 1 shifted on
++        IF (KREPTX.GT.0) THEN
++          IF ((SWPDIR.EQ.1 .OR. SWPDIR.EQ.4) .AND. IXCGRD(1).EQ.1) THEN
++            DX1 = DX1 + XCPER
++            DY1 = DY1 + YCPER
++          ELSE IF ((SWPDIR.EQ.2 .OR. SWPDIR.EQ.3) .AND.
++     &             IXCGRD(1).EQ.MXC) THEN
++            DX1 = DX1 - XCPER
++            DY1 = DY1 - YCPER
++          ENDIF
++        ENDIF
+         IF  ( ONED ) THEN                                                 32.02
+ !         *** Inclusion of virtual point ***                              32.02
+           VIRT = 1.E6                                                     32.02
+@@ -4571,6 +4584,7 @@
+ !
+       INTEGER  IDIR, IDCUM, IDMIN, IDMAX, NCURID, NID(4)                  41.53
+       REAL     IDX, IDY, CLAT                                             41.53
++      REAL     DXW
+ !
+       INTEGER IENT
+       SAVE IENT
+@@ -4583,7 +4597,17 @@
+ !            consider the equation on a rectangular grid                  41.53
+ !            so that all bins will be filled                              41.53
+ !
+-        IDX=1./(XCGRID(IXCGRD(1),IYCGRD(1))-XCGRID(IXCGRD(2),IYCGRD(2)))
++        DXW = XCGRID(IXCGRD(1),IYCGRD(1))-XCGRID(IXCGRD(2),IYCGRD(2))
++!       repeating x-axis: upwind neighbour across the seam (see SWGEOM)
++        IF (KREPTX.GT.0) THEN
++          IF ((SWPDIR.EQ.1 .OR. SWPDIR.EQ.4) .AND. IXCGRD(1).EQ.1) THEN
++            DXW = DXW + XCPER
++          ELSE IF ((SWPDIR.EQ.2 .OR. SWPDIR.EQ.3) .AND.
++     &             IXCGRD(1).EQ.MXC) THEN
++            DXW = DXW - XCPER
++          ENDIF
++        ENDIF
++        IDX=1./DXW
+         IDY=1./(YCGRID(IXCGRD(1),IYCGRD(1))-YCGRID(IXCGRD(3),IYCGRD(3)))
+ !
+         IF ( KSPHER.GT.0 ) THEN
+--- a/SWAN/src/swanmain.ftn
++++ b/SWAN/src/swanmain.ftn
+@@ -2514,6 +2514,8 @@
+       WAVAGE = 0.                                                         33.08
+       KSPHER = 0                                                          33.09
+       KREPTX = 0                                                          33.09
++      XCPER  = 0.
++      YCPER  = 0.
+       REARTH = 2.E7/PI                                                    33.09
+       LENDEG = 2.E7/180.                                                  33.09
+ !
+@@ -7533,6 +7535,7 @@
+ !
+       USE SWCOMM2                                                         40.41
+       USE SWCOMM3                                                         40.41
++      USE SWCOMM4
+       USE M_PARALL                                                        40.31
+ !
+ !
+@@ -7670,7 +7673,9 @@
+ !       ***** check for location *****
+         SINCMP = .TRUE.
+         IF (XC .LT. -0.01) SINCMP = .FALSE.                               40.00
+-        IF (XC .GT. REAL(MXC-1)+0.01) SINCMP = .FALSE.                    40.00
++!       REPeating grid: XC may lie between column MXC and the next one,
++!       column 1 shifted by one period (see CVMESH)
++        IF (XC .GT. REAL(MXC-1)+0.01 .AND. KREPTX.EQ.0) SINCMP = .FALSE.
+         IF (YC .LT. -0.01) SINCMP = .FALSE.                               40.00
+         IF (YC .GT. REAL(MYC-1)+0.01) SINCMP = .FALSE.                    40.00
+       ELSE IF (OPTG.EQ.5) THEN                                            40.80
+@@ -8112,9 +8117,10 @@
+ !     check combination of REPeating option and grid type and dimension   33.09
+ !
+       IF (KREPTX.GT.0) THEN                                               33.08
+-!       --- "GE" changed to "EQ" since OPTG.EQ.3 FOR CURVILINEAR          40.08
+-        IF (OPTG.EQ.3)                                                    40.08
+-     &  CALL MSGERR (3, 'Curvilinear grid cannot be REPeating')
++!       --- curvilinear: the period comes from READGRID COORDINATES,
++!           which reads one extra column (column 1 shifted by a period)
++        IF (OPTG.EQ.3 .AND. XCPER.EQ.0. .AND. YCPER.EQ.0.)
++     &  CALL MSGERR (3, 'REPeating curvilinear grid: no period found')
+         IF (OPTG.EQ.5)                                                    40.80
+      &  CALL MSGERR (3, 'Unstructured grid cannot be REPeating')          40.80
+         IF (PROPSC.EQ.1 .AND. MXC.LT.1)
+--- a/SWAN/src/swanout1.ftn
++++ b/SWAN/src/swanout1.ftn
+@@ -6859,6 +6859,12 @@
+           DYI = RRDI * (SYUP*(YCGRID(JXUP,JYUP)-YCGRID(JXLO,JYUP)) +      30.72
+      &                  SYLO*(YCGRID(JXUP,JYLO)-YCGRID(JXLO,JYLO)))       30.72
+         ENDIF
++!       repeating grid: JXUP wrapped around to the start of the grid,
++!       so its coordinates are one period off
++        IF (KREPTX.GT.0 .AND. JXUP.LT.JXLO) THEN
++          DXI = DXI + RRDI * XCPER
++          DYI = DYI + RRDI * YCPER
++        ENDIF
+         IF (ONX) THEN
+           DDJ = RRDJ * (DEP2(IND8)-DEP2(IND7))
+           DXJ = RRDJ * (XCGRID(JX,JYUP)-XCGRID(JX,JYLO))                  30.72
+--- a/SWAN/src/swanpre1.ftn
++++ b/SWAN/src/swanpre1.ftn
+@@ -2094,6 +2094,11 @@
+               YCGRID(I,J)=VALY                                            40.31
+  205        CONTINUE
+  200      CONTINUE
++!         period of a REPeating grid: MXC meshes along the grid x-axis
++          IF (KREPTX.GT.0) THEN
++            XCPER = COSPC*MXC*DX
++            YCPER = SINPC*MXC*DX
++          ENDIF
+         ENDIF
+ !
+ !       *** the computational grid is included in output data  ***        40.31
+@@ -4810,6 +4815,12 @@
+         MYG(IGR1) = MYC
+         MXG(IGR2) = MXC
+         MYG(IGR2) = MYC
++!       REPeating curvilinear grid: the file has one more column, column
++!       1 shifted by the period (see CVPERI)
++        IF (KREPTX.GT.0 .AND. OPTG.EQ.3) THEN
++          MXG(IGR1) = MXC+1
++          MXG(IGR2) = MXC+1
++        ENDIF
+       ELSE IF (KEYWIS ('ASTD')) THEN                                      40.03
+ !       air-sea temperature difference
+         IGR1   = 10
+@@ -5020,7 +5031,7 @@
+          WLEVL=>M_GENARR_MOD(ng)%WLEVL_G
+          CALL SWCOPR( TARR, WLEVL, MXG(IGR1)*MYG(IGR1) )                  40.31
+       ELSE IF (IGR1.EQ.8) THEN                                            40.31
+-         CALL SWCOPR( TARR, XCGRID, MXG(IGR1)*MYG(IGR1) )                 40.31
++         CALL CVPERI( TARR, XCGRID, 1 )
+       ELSE IF (IGR1.EQ.10) THEN                                           40.31
+          DEALLOCATE(M_GENARR_MOD(ng)%ASTDF_G)
+          ALLOCATE (M_GENARR_MOD(ng)%ASTDF_G(MXG(IGR1)*MYG(IGR1)))
+@@ -5074,7 +5085,7 @@
+          IF (.NOT.ALLOCATED(WLEVL)) ALLOCATE(WLEVL(MXG(IGR1)*MYG(IGR1)))  40.31
+          CALL SWCOPR( TARR, WLEVL, MXG(IGR1)*MYG(IGR1) )                  40.31
+       ELSE IF (IGR1.EQ.8) THEN                                            40.31
+-         CALL SWCOPR( TARR, XCGRID, MXG(IGR1)*MYG(IGR1) )                 40.31
++         CALL CVPERI( TARR, XCGRID, 1 )
+       ELSE IF (IGR1.EQ.10) THEN                                           40.31
+          IF (.NOT.ALLOCATED(ASTDF)) ALLOCATE(ASTDF(MXG(IGR1)*MYG(IGR1)))  40.31
+          CALL SWCOPR( TARR, ASTDF, MXG(IGR1)*MYG(IGR1) )                  40.31
+@@ -5137,7 +5148,7 @@
+          WYI=>M_GENARR_MOD(ng)%WYI_G
+          CALL SWCOPR( TARR, WYI, MXG(IGR2)*MYG(IGR2) )                    40.31
+       ELSE IF (IGR2.EQ.9) THEN                                            40.31
+-           CALL SWCOPR( TARR, YCGRID, MXG(IGR2)*MYG(IGR2) )               40.31
++           CALL CVPERI( TARR, YCGRID, 2 )
+       END IF                                                              40.31
+ #else
+         IF (IGR2.EQ.3) THEN                                               40.31
+@@ -5147,7 +5158,7 @@
+            IF (.NOT.ALLOCATED(WYI)) ALLOCATE(WYI(MXG(IGR2)*MYG(IGR2)))    40.31
+            CALL SWCOPR( TARR, WYI, MXG(IGR2)*MYG(IGR2) )                  40.31
+         ELSE IF (IGR2.EQ.9) THEN                                          40.31
+-           CALL SWCOPR( TARR, YCGRID, MXG(IGR2)*MYG(IGR2) )               40.31
++           CALL CVPERI( TARR, YCGRID, 2 )
+         END IF                                                            40.31
+ #endif
+         DEALLOCATE(TARR)                                                  40.31
+@@ -5165,6 +5176,83 @@
+ !
+       RETURN
+ ! * end of subroutine SREDEP *
++      END
++!***********************************************************************
++!                                                                      *
++      SUBROUTINE CVPERI (TARR, CGRID, ICOO)
++!                                                                      *
++!***********************************************************************
++!
++!     Copies coordinates read with READGRID COORDINATES (TARR) to the
++!     computational grid array CGRID (ICOO=1: x, ICOO=2: y).
++!     REPeating curvilinear grid: TARR has MXC+1 columns, the last one
++!     being column 1 shifted by one period. CGRID gets columns 1..MXC,
++!     and the period vector (XCPER,YCPER) is column MXC+1 minus column
++!     1, which must be the same in every row.
++!
++      USE OCPCOMM4
++      USE SWCOMM2
++      USE SWCOMM3
++      USE SWCOMM4
++!
++      INTEGER ICOO
++      REAL    TARR(*), CGRID(MXC,MYC)
++!
++      INTEGER IX, IY, I1, NROW
++      REAL    PMIN, PMAX, CMAX, EXCV, TOL
++      REAL, SAVE :: XSPRD = 0., XCMAX = 0.
++!     sum of the row periods in double precision: in single precision the
++!     rounding of the growing sum (e.g. 111 rows x 6 km) is centimetres
++      DOUBLE PRECISION PER
++      LOGICAL EQREAL
++!
++      IF (KREPTX.EQ.0 .OR. OPTG.NE.3) THEN
++         CALL SWCOPR (TARR, CGRID, MXC*MYC)
++         RETURN
++      ENDIF
++      EXCV = EXCFLD(7+ICOO)
++      PER  = 0.D0
++      PMIN =  1.E30
++      PMAX = -1.E30
++      CMAX = 0.
++      NROW = 0
++      DO IY = 1, MYC
++         I1 = (IY-1)*(MXC+1)
++         DO IX = 1, MXC
++            CGRID(IX,IY) = TARR(I1+IX)
++         ENDDO
++         IF (.NOT.EQREAL(TARR(I1+1),EXCV) .AND.
++     &       .NOT.EQREAL(TARR(I1+MXC+1),EXCV)) THEN
++            NROW = NROW + 1
++            PER  = PER + DBLE(TARR(I1+MXC+1) - TARR(I1+1))
++            PMIN = MIN(PMIN, TARR(I1+MXC+1) - TARR(I1+1))
++            PMAX = MAX(PMAX, TARR(I1+MXC+1) - TARR(I1+1))
++            CMAX = MAX(CMAX, ABS(TARR(I1+1)), ABS(TARR(I1+MXC+1)))
++         ENDIF
++      ENDDO
++      IF (NROW.EQ.0) THEN
++         CALL MSGERR (3, 'REPeating curvilinear grid: no row with '//
++     &                   'valid first and last coordinates')
++         RETURN
++      ENDIF
++      IF (ICOO.EQ.1) THEN
++         XCPER = REAL(PER / DBLE(NROW))
++         XSPRD = PMAX - PMIN
++         XCMAX = CMAX
++      ELSE
++         YCPER = REAL(PER / DBLE(NROW))
++!        allow for rounding of large (e.g. UTM) single precision values
++         TOL = 1.E-4*SQRT(XCPER**2+YCPER**2) + 1.E-6*MAX(XCMAX,CMAX)
++         IF (MAX(XSPRD, PMAX-PMIN) .GT. TOL) THEN
++            CALL MSGERR (3, 'REPeating curvilinear grid: last column '//
++     &                   'is not column 1 shifted by one period')
++         ENDIF
++         WRITE (PRINTF, '(A,2(1X,E14.7))')
++     &      ' REPeating curvilinear grid, period vector (x,y):',
++     &      XCPER, YCPER
++      ENDIF
++      RETURN
++! * end of subroutine CVPERI *
+       END
+ !***********************************************************************
+ !                                                                      *
+--- a/SWAN/src/swanser.ftn
++++ b/SWAN/src/swanser.ftn
+@@ -1332,6 +1332,102 @@
+ !                                                                      *
+ !***********************************************************************
+ !
++!     Finds the location (XC,YC), in grid index units, of the point
++!     (XP,YP) in a curvilinear grid (CVMSH1). REPeating grid: the point
++!     may lie in a copy of the grid shifted by whole periods
++!     (XCPER,YCPER), or between column MXC and column 1 shifted by one
++!     period; XC is then returned in the range 0 <= XC < MXC. CVMSH1
++!     only searches that last mesh with its first, short Newton run, so
++!     if it fails the mesh is searched explicitly.
++!
++      USE OCPCOMM4
++      USE SWCOMM2
++      USE SWCOMM3
++      USE SWCOMM4
++!
++      REAL     XCGRID(MXC,MYC),    YCGRID(MXC,MYC)
++      REAL     XP, YP, XC, YC
++      INTEGER  KGRPNT(MXC,MYC), KGRBND(*)
++!
++      INTEGER  IY, NPER, ISH, ITRY, IYMIN, IXK, IYK, ITER, MXITW
++      REAL     XPS, YPS, DIS, DISMIN
++      LOGICAL  FINDXY
++!
++      IF (KREPTX.EQ.0 .OR. OPTG.NE.3) THEN
++         CALL CVMSH1 (XP, YP, XC, YC, KGRPNT, XCGRID, YCGRID, KGRBND)
++         RETURN
++      ENDIF
++!     whole periods from the first active point of column 1 to (XP,YP);
++!     a guess, so the copies one period either side are tried as well
++      NPER = 0
++      DO IY = 1, MYC
++         IF (KGRPNT(1,IY).GT.1) THEN
++            NPER = FLOOR(((XP-XCGRID(1,IY))*XCPER +
++     &                    (YP-YCGRID(1,IY))*YCPER) /
++     &                   (XCPER**2 + YCPER**2))
++            EXIT
++         ENDIF
++      ENDDO
++      DO ITRY = 1, 3
++         ISH = NPER
++         IF (ITRY.EQ.2) ISH = NPER - 1
++         IF (ITRY.EQ.3) ISH = NPER + 1
++         XPS = XP - REAL(ISH)*XCPER
++         YPS = YP - REAL(ISH)*YCPER
++         CALL CVMSH1 (XPS, YPS, XC, YC, KGRPNT, XCGRID, YCGRID, KGRBND)
++         IF (XC.GT.-98.) THEN
++            IF (XC.GE.REAL(MXC)) XC = XC - REAL(MXC)
++            RETURN
++         ENDIF
++      ENDDO
++!     Newton search started in the mesh between column MXC and column
++!     1 + period, at the row of the nearest point of column MXC
++      MXITW = 20
++      DO ITRY = 1, 3
++         ISH = NPER
++         IF (ITRY.EQ.2) ISH = NPER - 1
++         IF (ITRY.EQ.3) ISH = NPER + 1
++         XPS = XP - REAL(ISH)*XCPER
++         YPS = YP - REAL(ISH)*YCPER
++         DISMIN = 1.E20
++         IYMIN  = 1
++         DO IY = 1, MYC
++            DIS = (XPS-XCGRID(MXC,IY))**2 + (YPS-YCGRID(MXC,IY))**2
++            IF (DIS.LT.DISMIN) THEN
++               DISMIN = DIS
++               IYMIN  = IY
++            ENDIF
++         ENDDO
++         XC = REAL(MXC) + 0.5
++         YC = REAL(IYMIN)
++         CALL NEWTON (XPS, YPS, XCGRID, YCGRID, MXITW, ITER, XC, YC,
++     &                FINDXY)
++         IF (FINDXY) THEN
++            IXK = INT(XC+3.001)-2
++            IF (IXK.GT.MXC) IXK = IXK - MXC
++            IYK = INT(YC+3.001)-2
++            IF (KGRPNT(IXK,IYK).LE.1) THEN
++               WRITE (PRINTF, '(A,2F12.4,A)') ' point with location ',
++     &            XP+XOFFS, YP+YOFFS, ' is not active'
++               XC = -99.
++               YC = -99.
++            ELSE IF (XC.GE.REAL(MXC)) THEN
++               XC = XC - REAL(MXC)
++            ENDIF
++            RETURN
++         ENDIF
++      ENDDO
++      XC = -99.
++      YC = -99.
++      RETURN
++! * end of subroutine CVMESH *
++      END
++!***********************************************************************
++!                                                                      *
++      SUBROUTINE CVMSH1 (XP, YP, XC, YC, KGRPNT, XCGRID ,YCGRID, KGRBND)
++!                                                                      *
++!***********************************************************************
++!
+       USE OCPCOMM4                                                        40.41
+       USE SWCOMM2                                                         40.41
+       USE SWCOMM3                                                         40.41
+@@ -1436,6 +1532,7 @@
+ !     IBND     counter of boundary grid points
+ !
+       INTEGER       :: IX, IY, K1, IXMIN, IYMIN, IBND
++      INTEGER       :: IXK
+ #if !defined SWAN_MODEL
+       INTEGER, SAVE :: MXITNR = 0
+ #endif
+@@ -1667,7 +1764,9 @@
+           GOTO 99
+         ENDIF
+       ENDIF                                                               40.00
+-  80  IF (KGRPNT(INT(XC+3.001)-2,INT(YC+3.001)-2).LE.1) THEN
++  80  IXK = INT(XC+3.001)-2
++      IF (KREPTX.GT.0 .AND. IXK.GT.MXC) IXK = IXK - MXC
++      IF (KGRPNT(IXK,INT(YC+3.001)-2).LE.1) THEN
+          WRITE (PRINTF, 90) XP+XOFFS, YP+YOFFS                            40.41
+   90     FORMAT (' point with location ',2F12.4,' is not active')         40.41
+          XC = -99.
+@@ -1983,7 +2082,13 @@
+ ! 13. Source text
+ !
+       INTEGER, SAVE :: IENT = 0
++!     corner coordinates of the current mesh; in a REPeating grid the
++!     mesh I1=MXC lies between column MXC and column 1 shifted by one
++!     period (XCPER,YCPER), so XC may go up to MXC+1
++      REAL    X11, X12, X21, X22, Y11, Y12, Y21, Y22, XCMAX
+       IF (LTRACE) CALL STRACE (IENT,'NEWTON')
++      XCMAX = REAL(MXC)
++      IF (KREPTX.GT.0) XCMAX = REAL(MXC+1)
+ !
+       DXC    = 1000.
+       DYC    = 1000.
+@@ -2004,31 +2109,50 @@
+         ITER = K                                                          40.41
+         I1   = INT(XC)                                                    40.00
+         J1   = INT(YC)
+-        IF (I1 .EQ. MXC) I1 = I1 - 1
++        IF (KREPTX.GT.0) THEN
++          IF (I1 .GT. MXC) I1 = MXC
++        ELSE
++          IF (I1 .EQ. MXC) I1 = I1 - 1
++        ENDIF
+         IF (J1 .EQ. MYC) J1 = J1 - 1
+         I2  = I1 + 1
+         J2  = J1 + 1
++        X11 = XCGRID(I1,J1)
++        X12 = XCGRID(I1,J2)
++        Y11 = YCGRID(I1,J1)
++        Y12 = YCGRID(I1,J2)
++        IF (I2 .GT. MXC) THEN
++          X21 = XCGRID(1,J1) + XCPER
++          X22 = XCGRID(1,J2) + XCPER
++          Y21 = YCGRID(1,J1) + YCPER
++          Y22 = YCGRID(1,J2) + YCPER
++        ELSE
++          X21 = XCGRID(I2,J1)
++          X22 = XCGRID(I2,J2)
++          Y21 = YCGRID(I2,J1)
++          Y22 = YCGRID(I2,J2)
++        ENDIF
+         FJ1 = FLOAT(J1)
+         FI1 = FLOAT(I1)
+         FJ2 = FLOAT(J2)
+         FI2 = FLOAT(I2)
+ !
+-        XVC   = (YC-FJ1)*((XC-FI1)*XCGRID(I2,J2)  +
+-     &                    (FI2-XC)*XCGRID(I1,J2)) +
+-     &          (FJ2-YC)*((XC-FI1)*XCGRID(I2,J1)  +
+-     &                    (FI2-XC)*XCGRID(I1,J1))
+-        YVC   = (YC-FJ1)*((XC-FI1)*YCGRID(I2,J2)  +
+-     &                    (FI2-XC)*YCGRID(I1,J2)) +
+-     &          (FJ2-YC)*((XC-FI1)*YCGRID(I2,J1)  +
+-     &                    (FI2-XC)*YCGRID(I1,J1))
+-        DXDXC = (YC -FJ1)*(XCGRID(I2,J2) - XCGRID(I1,J2)) +
+-     &          (FJ2-YC )*(XCGRID(I2,J1) - XCGRID(I1,J1))
+-        DXDYC = (XC -FI1)*(XCGRID(I2,J2) - XCGRID(I2,J1)) +
+-     &          (FI2-XC )*(XCGRID(I1,J2) - XCGRID(I1,J1))
+-        DYDXC = (YC -FJ1)*(YCGRID(I2,J2) - YCGRID(I1,J2)) +
+-     &          (FJ2-YC )*(YCGRID(I2,J1) - YCGRID(I1,J1))
+-        DYDYC = (XC -FI1)*(YCGRID(I2,J2) - YCGRID(I2,J1)) +
+-     &          (FI2-XC )*(YCGRID(I1,J2) - YCGRID(I1,J1))
++        XVC   = (YC-FJ1)*((XC-FI1)*X22  +
++     &                    (FI2-XC)*X12) +
++     &          (FJ2-YC)*((XC-FI1)*X21  +
++     &                    (FI2-XC)*X11)
++        YVC   = (YC-FJ1)*((XC-FI1)*Y22  +
++     &                    (FI2-XC)*Y12) +
++     &          (FJ2-YC)*((XC-FI1)*Y21  +
++     &                    (FI2-XC)*Y11)
++        DXDXC = (YC -FJ1)*(X22 - X12) +
++     &          (FJ2-YC )*(X21 - X11)
++        DXDYC = (XC -FI1)*(X22 - X21) +
++     &          (FI2-XC )*(X12 - X11)
++        DYDXC = (YC -FJ1)*(Y22 - Y12) +
++     &          (FJ2-YC )*(Y21 - Y11)
++        DYDYC = (XC -FI1)*(Y22 - Y21) +
++     &          (FI2-XC )*(Y12 - Y11)
+ !
+         IF (ITEST .GE. 150)
+      &    WRITE(PRINTF,35) K, XC-1., YC-1., XP, YP, XVC, YVC              40.00
+@@ -2036,8 +2160,8 @@
+      &         ' (XP,YP)=', 2(1X,F10.2),
+      &         '  X,Y(XC,YC) = ', 2(1X,F10.2))
+         IF (ITEST .GE. 180) WRITE(PRINTF,36)
+-     &     XCGRID(I1,J1), XCGRID(I1,J2), XCGRID(I2,J1), XCGRID(I2,J2),
+-     &     YCGRID(I1,J1), YCGRID(I1,J2), YCGRID(I2,J1), YCGRID(I2,J2),
++     &     X11, X12, X21, X22,
++     &     Y11, Y12, Y21, Y22,
+      &                     DXDXC, DXDYC, DYDXC, DYDYC                     40.00
+  36     FORMAT(' NEWTON grid coord:', 8(1x, F10.0), /
+      &         '        deriv=', 4(1X,F10.2))                             40.00
+@@ -2059,7 +2183,7 @@
+ !       *** grid, put that point in the closest boundary    ***
+         IF (XC .LT. 1. ) XC = 1.
+         IF (YC .LT. 1. ) YC = 1.
+-        IF (XC .GT. MXC) XC = FLOAT(MXC)
++        IF (XC .GT. XCMAX) XC = XCMAX
+         IF (YC .GT. MYC) YC = FLOAT(MYC)
+ !
+         IF (ITEST .GE. 120 .OR. INTES .GE. 50 .OR. IOUTES .GE. 50)
+--- a/SWAN/src/swmod1.ftn
++++ b/SWAN/src/swmod1.ftn
+@@ -3169,12 +3169,16 @@
+ ! REARTH [   6E6] radius of the earth
+ ! WAVAGE [    0.] indicates "wave age" parameter (used in counteracting garden-sprinkler effect
+ !                 in subroutine SANDL)
++! XCPER  [    0.] x component of the period vector of a repeating grid (KREPTX>0): grid
++!                 column MXC+1 (not stored) is column 1 shifted by (XCPER,YCPER)
++! YCPER  [    0.] y component of that period vector
+ !
+       INTEGER PROPSC,    KSPHER,    KREPTX
+       INTEGER PROPSL
+       INTEGER PROPSS,    PROPSN,    PROJ_METHOD
+       INTEGER PROPFL
+       REAL    WAVAGE,    REARTH,    LENDEG
++      REAL    XCPER,     YCPER
+ !$OMP THREADPRIVATE(PROPSL)
+ !
+ !  8. Subroutines and functions used

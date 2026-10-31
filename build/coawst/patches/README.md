@@ -57,5 +57,6 @@ its function there (`change_<name>`).
 |---|---|---|---|
 | [swan-netcdf-output](2-improvements/swan-netcdf-output.md) | SWAN refused most quantities as NetCDF and stored most others as packed 16-bit integers (Hs in 0.76 mm steps); now every 2-D quantity, as 32-bit float | output only (NetCDF files); the run is bit-identical | Inlet_test, each quantity as .nc and .mat |
 | [swan-netcdf4-compression](2-improvements/swan-netcdf4-compression.md) | SWAN ignored `OUT_NETCDF4`/`DEFLATE` and always wrote classic, uncompressed files; now compressed NetCDF-4, as ROMS | output only: same values, files 2-4x smaller (with the options) | Inlet_test, three builds, every variable compared |
+| [swan-periodic-curvilinear](2-improvements/swan-periodic-curvilinear.md) | SWAN refused periodic (REPEATING) curvilinear grids; now supported (period from an extra coordinate column, seam geometry, output search); also corrects FORCE at the seam of regular periodic grids | new capability; other grids unchanged | standalone SWAN, 12 setups: curvilinear = regular, seam moved through the pass, 1 vs 4 processes |
 
 More improvements and the experimental options follow.
