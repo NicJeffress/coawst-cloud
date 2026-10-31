@@ -1,0 +1,92 @@
+diff -ruN a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -660,6 +660,16 @@
+ !  Compute total depth (m) and vertically integrated mass fluxes.
+ !-----------------------------------------------------------------------
+ !
++#if defined WEC && defined WET_DRY && defined SOLVE3D
++!  The Stokes transport is masked for wet/dry with the fast-step
++!  masks of wetdry_mask_tile (2 = wet on both sides, +-1 = flow one
++!  way only, 0 = dry), but wetdry_tile is called below, after these
++!  fluxes. In the first predictor sub-step the masks in memory are
++!  still the time-averaged ones of wetdry_avg_mask_tile (0 or 1, flow
++!  direction already applied), for which the formula keeps only
++!  transport towards +i/+j: use those masks directly there.
++!
++#endif
+ #if defined DISTRIBUTE && !defined NESTING
+ 
+ !  In distributed-memory, the I- and J-ranges are different and a
+@@ -681,9 +691,17 @@
+           DUon(i,j)=ubar(i,j,krhs)*cff1
+ # ifdef WEC
+ #  ifdef WET_DRY
++#   ifdef SOLVE3D
++          IF (FIRST_2D_STEP.and.PREDICTOR_2D_STEP(ng)) THEN
++            cff7=umask_wet(i,j)
++          ELSE
++#   endif
+           cff5=ABS(ABS(umask_wet(i,j))-1.0_r8)
+           cff6=0.5_r8+DSIGN(0.5_r8,ubar_stokes(i,j))*umask_wet(i,j)
+           cff7=0.5_r8*umask_wet(i,j)*cff5+cff6*(1.0_r8-cff5)
++#   ifdef SOLVE3D
++          END IF
++#   endif
+           cff1=cff1*cff7
+ #  endif
+           DUSon(i,j)=ubar_stokes(i,j)*cff1
+@@ -698,9 +716,17 @@
+           DVom(i,j)=vbar(i,j,krhs)*cff1
+ # ifdef WEC
+ #  ifdef WET_DRY
++#   ifdef SOLVE3D
++          IF (FIRST_2D_STEP.and.PREDICTOR_2D_STEP(ng)) THEN
++            cff7=vmask_wet(i,j)
++          ELSE
++#   endif
+           cff5=ABS(ABS(vmask_wet(i,j))-1.0_r8)
+           cff6=0.5_r8+DSIGN(0.5_r8,vbar_stokes(i,j))*vmask_wet(i,j)
+           cff7=0.5_r8*vmask_wet(i,j)*cff5+cff6*(1.0_r8-cff5)
++#   ifdef SOLVE3D
++          END IF
++#   endif
+           cff1=cff1*cff7
+ #  endif
+           DVSom(i,j)=vbar_stokes(i,j)*cff1
+@@ -723,9 +749,17 @@
+           DUon(i,j)=ubar(i,j,krhs)*cff1
+ # ifdef WEC
+ #  ifdef WET_DRY
++#   ifdef SOLVE3D
++          IF (FIRST_2D_STEP.and.PREDICTOR_2D_STEP(ng)) THEN
++            cff7=umask_wet(i,j)
++          ELSE
++#   endif
+           cff5=ABS(ABS(umask_wet(i,j))-1.0_r8)
+           cff6=0.5_r8+DSIGN(0.5_r8,ubar_stokes(i,j))*umask_wet(i,j)
+           cff7=0.5_r8*umask_wet(i,j)*cff5+cff6*(1.0_r8-cff5)
++#   ifdef SOLVE3D
++          END IF
++#   endif
+           cff1=cff1*cff7
+ #  endif
+           DUSon(i,j)=ubar_stokes(i,j)*cff1
+@@ -740,9 +774,17 @@
+           DVom(i,j)=vbar(i,j,krhs)*cff1
+ # ifdef WEC
+ #  ifdef WET_DRY
++#   ifdef SOLVE3D
++          IF (FIRST_2D_STEP.and.PREDICTOR_2D_STEP(ng)) THEN
++            cff7=vmask_wet(i,j)
++          ELSE
++#   endif
+           cff5=ABS(ABS(vmask_wet(i,j))-1.0_r8)
+           cff6=0.5_r8+DSIGN(0.5_r8,vbar_stokes(i,j))*vmask_wet(i,j)
+           cff7=0.5_r8*vmask_wet(i,j)*cff5+cff6*(1.0_r8-cff5)
++#   ifdef SOLVE3D
++          END IF
++#   endif
+           cff1=cff1*cff7
+ #  endif
+           DVSom(i,j)=vbar_stokes(i,j)*cff1

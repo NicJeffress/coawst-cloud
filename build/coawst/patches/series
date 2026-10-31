@@ -14,6 +14,7 @@
 1-fixes/roms-vegetation.patch
 1-fixes/roms-wec-stokes-fixes.patch
 1-fixes/roms-limit-bstress.patch
+1-fixes/roms-wetdry-stokes.patch
 1-fixes/swan-nc-crash.patch
 1-fixes/swan-stop-on-input-errors.patch
 1-fixes/swan-output-fixes.patch
