@@ -42,6 +42,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `improvements/swan-netcdf4-compression/run.sh OUTDIR` | swan-netcdf4-compression | Inlet_test BLOCK, TABLE and SPECOUT .nc, three builds: identical values, NetCDF-4 + deflate with the options | 15 min |
 | `improvements/swan-periodic-curvilinear/run.sh OUTDIR` | swan-periodic-curvilinear | standalone periodic SWAN on curvilinear grids: same as regular, seam through the pass, processes, output search, refused before | 20 min |
 | `improvements/roms-wec-stokes-fast/run.sh OUTDIR [MINUTES]` | roms-wec-stokes-fast | Reef_Ideal_A15 with PROFILE: fields at rounding level, WEC kernel CPU time | 10 min + runs |
+| `improvements/build-settings/run.sh OUTDIR` | build settings | Inlet_test SPECOUT on 1 vs 2 SWAN; A15 stock vs engine flags: differences, repeats, speed | 40 min + runs |
 
 ## Test cases
 
