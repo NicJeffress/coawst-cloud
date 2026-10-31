@@ -33,6 +33,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR` | swan-vegetation-fixes | source check; Veg_test with VEGETATION 3, submerged and emergent plants | 25 min |
 | `fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR` | swan-periodic-fixes | source check; standalone periodic reef (cases/Swan_Periodic_Test), 1 and 4 SWAN processes | 25 min |
 | `fixes/swan-halo-hang/run.sh OUTDIR [TIMEOUT_S]` | swan-halo-hang | periodic channel with 1100-point rows on 2 SWAN processes: hangs before, finishes after | 15 min |
+| `fixes/swan-exact-restart/run.sh OUTDIR` | swan-exact-restart | standalone SWAN, straight vs restarted, binary and text restart files | 15 min |
 
 ## Tools
 

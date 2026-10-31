@@ -1,0 +1,275 @@
+--- a/SWAN/src/swan_iounits.ftn
++++ b/SWAN/src/swan_iounits.ftn
+@@ -24,6 +24,13 @@
+       integer, dimension(:,:), pointer :: myschild
+ #endif
+       integer, dimension(:), pointer :: SwanRstFnum
++!  SWAN patch item 19: SwanRstUnf, RESTART files binary (exact);
++!  HotFull, HotCompda, HotAc2: the full state read by INIT HOTSTART
++!  ... UNFormatted, restored in SWAN_RUN at IT = 0 (one grid only)
++      logical, dimension(:), pointer :: SwanRstUnf
++      logical :: HotFull = .FALSE., HotPost = .FALSE.
++      real, allocatable :: HotCompda(:,:), HotAc2(:,:,:)
++      real, allocatable :: HotCompdaPost(:,:)
+ 
+       character (len=IOnamesize), allocatable :: Wname(:)
+       character (len=IOnamesize), allocatable :: SwanRstName(:)
+@@ -46,6 +53,8 @@
+ 
+       allocate (dtswanrst(NUM_SGRIDS))
+       allocate (SwanRstFnum(NUM_SGRIDS))
++      allocate (SwanRstUnf(NUM_SGRIDS))
++      SwanRstUnf=.FALSE.
+ 
+       allocate ( Wname(NUM_SGRIDS) )
+       allocate ( SwanRstName(NUM_SGRIDS) )
+--- a/SWAN/src/swanmain.ftn
++++ b/SWAN/src/swanmain.ftn
+@@ -858,6 +858,18 @@
+ !  Prevent call to output for a stationary run during 
+ !  first call to swan_run.
+ !
++!     SWAN patch item 19: the full state of an exact restart, after the
++!     IT = 0 initialisation and before the output and the first exchange
++            IF (HotFull .AND. IT.EQ.0) THEN
++              IF (SIZE(HotCompda,2).EQ.MCMVAR) THEN
++                COMPDA(1:MCGRD,1:MCMVAR) = HotCompda
++                AC2(:,:,1:MCGRD) = HotAc2
++              ELSE
++                WRITE (PRINTF, *) 'full SWAN state not used: MCMVAR'
++              ENDIF
++              DEALLOCATE (HotCompda, HotAc2)
++              HotFull = .FALSE.
++            ENDIF
+             do_output=1
+             IF ((NSTATC.NE.1).and.(IT.eq.0)) do_output=0
+             IF (do_output.EQ.1) THEN
+@@ -975,6 +987,51 @@
+ 
+       RETURN
+       END SUBROUTINE SWAN_RST
++
++!***********************************************************************
++!                                                                      *
++      SUBROUTINE SWAN_RST_POST (IT_in)
++!                                                                      *
++!***********************************************************************
++!
++!     SWAN patch item 19: after a coupling exchange at which a binary
++!     restart file was written, append COMPDA (the exchange put ROMS's
++!     fields into it). After the first exchange of a run started from
++!     such a file, first put back the COMPDA of the uninterrupted run.
++!
++      USE TIMECOMM
++      USE SWCOMM3
++      USE M_PARALL
++      USE M_PARALL2, ONLY: COMPDA
++      USE M_COUPLING
++      USE SWPOINT_MOD, ONLY: INIT_POINTERS
++      USE swan_iounits
++!
++      IMPLICIT NONE
++!
++      INTEGER,  intent(in) :: IT_in
++      INTEGER   nsrst, NREF
++!
++      Gridnum=ng
++      CALL INIT_POINTERS(ng)
++      IF (HotPost .AND. IT_in.EQ.0) THEN
++        COMPDA(1:MCGRD,1:MCMVAR) = HotCompdaPost
++        DEALLOCATE (HotCompdaPost)
++        HotPost = .FALSE.
++      ENDIF
++      nsrst=INT(dtswanrst(ng)/DT)
++      IF (nsrst.gt.0 .AND. SwanRstUnf(ng)) THEN
++        IF (MOD(IT_in, nsrst).eq.0) THEN
++          NREF=SwanRstFnum(ng)
++          OPEN (NREF, FILE=TRIM(SwanRstName(ng)), FORM='UNFORMATTED',
++     &          STATUS='OLD', POSITION='APPEND')
++          WRITE (NREF) COMPDA(1:MCGRD,1:MCMVAR)
++          CLOSE (NREF)
++        END IF
++      END IF
++
++      RETURN
++      END SUBROUTINE SWAN_RST_POST
+ 
+ # ifdef COAWST_COUPLING
+ !***********************************************************************
+--- a/SWAN/src/swanpre1.ftn
++++ b/SWAN/src/swanpre1.ftn
+@@ -6707,6 +6707,10 @@
+       USE TIMECOMM                                                        40.41
+       USE M_PARALL                                                        40.31
+       USE SwanGriddata                                                    40.80
++#ifdef SWAN_MODEL
++      USE swan_iounits
++      USE M_COUPLING
++#endif
+ !
+ !
+ !   --|-----------------------------------------------------------|--
+@@ -7084,6 +7088,26 @@
+               READ (NREF) AC2(:,:,K)
+            ENDDO
+          ENDIF
++#ifdef SWAN_MODEL
++!        full SWAN state of RESTART ... UNFormatted (SWAN patch item 19),
++!        put back in SWAN_RUN at IT = 0
++         READ (NREF, IOSTAT=IOS) N1, N2, N3, N4
++         IF (IOS.EQ.0 .AND. N1.EQ.MCGRD .AND. N3.EQ.MDC .AND.
++     &       N4.EQ.MSC .AND. NUM_SGRIDS.EQ.1) THEN
++           IF (ALLOCATED(HotCompda)) DEALLOCATE(HotCompda, HotAc2)
++           ALLOCATE (HotCompda(N1,N2), HotAc2(N3,N4,N1))
++           READ (NREF) HotCompda
++           READ (NREF) HotAc2
++           HotFull = .TRUE.
++           IF (ALLOCATED(HotCompdaPost)) DEALLOCATE(HotCompdaPost)
++           ALLOCATE (HotCompdaPost(N1,N2))
++           READ (NREF, IOSTAT=IOS) HotCompdaPost
++           HotPost = IOS.EQ.0
++           IF (.NOT.HotPost) DEALLOCATE(HotCompdaPost)
++           WRITE (PRINTF, *) 'full SWAN state read (exact restart)',
++     &                       HotPost
++         ENDIF
++#endif
+         ELSE                                                              41.42
+          CALL IGNORE ('FREE')                                             41.42
+          CALL FOR (NREF, FILENM, 'OF', IOSTAT)
+@@ -7419,6 +7443,9 @@
+       CALL INKEYW ('STA', 'FREE')                                         41.42
+       IF (KEYWIS ('UNF') .OR. KEYWIS('BIN')) THEN                         41.42
+        CALL FOR (NREF, FILENM, 'UU', IOSTAT)
++#ifdef SWAN_MODEL
++       SwanRstUnf(ng)=.TRUE.
++#endif
+        IF (STPNOW()) RETURN
+        WRITE (NREF) VERTXT
+        WRITE (NREF) PROJID, PROJNR
+@@ -7472,6 +7499,9 @@
+       ELSE                                                                41.42
+        CALL IGNORE ('FREE')                                               41.42
+        CALL FOR (NREF, FILENM, 'UF', IOSTAT)
++#ifdef SWAN_MODEL
++       SwanRstUnf(ng)=.FALSE.
++#endif
+        IF (STPNOW()) RETURN                                               34.01
+        WRITE (NREF, 102) 'SWAN   1', 'Swan standard file, version'
+        IF (NSTATM.EQ.1) THEN
+@@ -7585,6 +7615,7 @@
+       USE SwanGriddata                                                    40.80
+       USE swan_iounits
+       USE M_COUPLING
++      USE M_PARALL2, ONLY: COMPDA
+ !
+ !
+ !   --|-----------------------------------------------------------|--
+@@ -7685,6 +7716,62 @@
+ !
+       NREF   = SwanRstFnum(ng)
+       IOSTAT = 0
++!     UNFormatted (SWAN patch item 19): the binary HOTFILE layout, exact,
++!     then MCGRD, MCMVAR, MDC, MSC, COMPDA and AC2 for an exact restart
++      IF (SwanRstUnf(ng)) THEN
++       CALL FOR (NREF, SwanRstName(ng), 'UU', IOSTAT)
++       IF (STPNOW()) RETURN
++       WRITE (NREF) VERTXT
++       WRITE (NREF) PROJID, PROJNR
++       WRITE (NREF) NSTATM
++       IF (NSTATM.EQ.1) WRITE (NREF) ITMOPT
++       WRITE (NREF) OPTG
++       IF (OPTG.NE.5) THEN
++         WRITE (NREF) MXC*MYC, MXC, MYC
++         DO IX = 1, MXC
++            DO IY = 1, MYC
++               IF ( EQREAL(XCGRID(IX,IY), EXCFLD(8)) .AND.
++     &              EQREAL(YCGRID(IX,IY), EXCFLD(9)) ) THEN
++                  WRITE (NREF) EXCFLD(8)+XOFFS, EXCFLD(9)+YOFFS
++               ELSE
++                  WRITE (NREF) XCGRID(IX,IY)+XOFFS, YCGRID(IX,IY)+YOFFS
++               ENDIF
++            ENDDO
++         ENDDO
++       ELSE
++         WRITE (NREF) nverts
++         DO K = 1, nverts
++            WRITE (NREF) xcugrd(K)+XOFFS, ycugrd(K)+YOFFS
++         ENDDO
++       ENDIF
++       WRITE (NREF) MSC
++       DO IS = 1, MSC
++         WRITE (NREF) SPCSIG(IS)/PI2
++       ENDDO
++       WRITE (NREF) MDC
++       DO ID = 1, MDC
++         WRITE (NREF) SPCDIR(ID,1)*180./PI
++       ENDDO
++       IF (NSTATM.EQ.1) WRITE (NREF) CHTIME_M
++       IF (OPTG.NE.5) THEN
++         DO IX = 1, MXC
++            DO IY = 1, MYC
++               INDX = KGRPNT(IX,IY)
++               WRITE (NREF) INDX
++               IF (INDX.NE.1) WRITE (NREF) AC2(:,:,INDX)
++            ENDDO
++         ENDDO
++       ELSE
++         DO K = 1, nverts
++            WRITE(NREF) AC2(:,:,K)
++         ENDDO
++       ENDIF
++       WRITE (NREF) MCGRD, MCMVAR, MDC, MSC
++       WRITE (NREF) COMPDA(1:MCGRD,1:MCMVAR)
++       WRITE (NREF) AC2(:,:,1:MCGRD)
++       CLOSE (NREF)
++       RETURN
++      ENDIF
+       CALL FOR (NREF,  SwanRstName(ng), 'UF', IOSTAT)
+       IF (STPNOW()) RETURN                                               34.01
+       WRITE (NREF, 102) 'SWAN   1', 'Swan standard file, version'
+--- a/SWAN/src/waves_control.ftn
++++ b/SWAN/src/waves_control.ftn
+@@ -242,6 +242,10 @@
+ !
+         CALL SWSYNC
+         CALL SWAN_CPL (0)
++!     SWAN patch item 19: COMPDA after the exchange (exact restarts)
++        DO ng=1,NUM_SGRIDS
++          CALL SWAN_RST_POST (0)
++        END DO
+ #endif
+ 
+       RETURN
+@@ -373,19 +377,24 @@
+           END DO
+ #endif
+         END DO
+-#ifdef COAWST_COUPLING
+-        IF (run_grid(1).eq.1) THEN
+-!
+-!     --- receive data from other coupled models.
+-          CALL SWSYNC
+-          CALL SWAN_CPL (1)
+-        END IF
+-#endif
++!     restart files hold the state the coupling exchange uses, then
++!     COMPDA after it (SWAN patch item 19)
+         DO ng=1,NUM_SGRIDS
+           IF (run_grid(1).eq.1) THEN
+             CALL SWAN_RST (iics(ng))
+           END IF
+         END DO
++#ifdef COAWST_COUPLING
++        IF (run_grid(1).eq.1) THEN
++!
++!     --- receive data from other coupled models.
++          CALL SWSYNC
++          CALL SWAN_CPL (1)
++          DO ng=1,NUM_SGRIDS
++            CALL SWAN_RST_POST (iics(ng))
++          END DO
++        END IF
++#endif
+       END DO
+       IF (ALLOCATED(run_grid)) DEALLOCATE (run_grid)
+       IF (ALLOCATED(run_cplr)) DEALLOCATE (run_cplr)

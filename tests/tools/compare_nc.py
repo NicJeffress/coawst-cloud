@@ -6,7 +6,8 @@ For every variable present in both files (or the ones named), prints the
 largest absolute difference, where it is (index of the first largest), the
 largest absolute value in FILE_A, and whether the two are bit-identical.
 Fill values (|x| >= 1e30, e.g. land points) are left out of the maximums.
---last compares only the last record of variables with a time dimension.
+--last compares only the last record of variables with a time dimension (the
+files may then hold different numbers of records).
 Exit status 0 if every compared variable is bit-identical, 1 otherwise.
 Needs numpy and netCDF4.
 """
@@ -33,16 +34,17 @@ def main(argv):
             print(f"{n:24s} (not in both files, skipped)")
             continue
         va, vb = a.variables[n], b.variables[n]
-        if va.shape != vb.shape:
+        timed = last and va.dimensions and "time" in va.dimensions[0]
+        # with --last, files may hold different numbers of records
+        if (va.shape[1:] if timed else va.shape) != (vb.shape[1:] if timed else vb.shape):
             print(f"{n:24s} shapes differ {va.shape} {vb.shape}")
             same_all = False
             continue
-        timed = last and va.dimensions and "time" in va.dimensions[0]
         xa = va[-1] if timed else va[:]
         xb = vb[-1] if timed else vb[:]
         if xa.dtype.kind not in "fiu":
             continue
-        xa, xb = np.asarray(xa, float), np.asarray(xb, float)
+        xa, xb = np.atleast_1d(np.asarray(xa, float)), np.atleast_1d(np.asarray(xb, float))
         same = np.array_equal(xa, xb, equal_nan=True)
         same_all &= same
         fill = (np.abs(xa) >= 1e30) | (np.abs(xb) >= 1e30)  # land / fill values

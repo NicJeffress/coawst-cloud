@@ -42,6 +42,7 @@ matters, the fix, how it was found, the test and its results, and its limits.
 | [swan-vegetation-fixes](1-fixes/swan-vegetation-fixes.md) | COAWST's vegetation routine in SWAN (VEGETATION 3) read an unallocated array, kept flexible plants rigid, used Cd 1.95 for emergent plants and wrote Cd as 0; SWAN's plant input read the wrong input grids | yes, VEGETATION 3 and SWAN's own plant input | source check + Veg_test with VEGETATION 3 |
 | [swan-periodic-fixes](1-fixes/swan-periodic-fixes.md) | Periodic SWAN (REPEATING): COMPGRID output interpolated between grid points; several processes on x-strips crashed or gave garbage; spectral Stokes fields sent to ROMS shifted | yes, periodic SWAN | source check + standalone periodic reef, 1 and 4 processes |
 | [swan-halo-hang](1-fixes/swan-halo-hang.md) | SWAN's halo exchange deadlocked once a row exceeded MPI's eager limit (blocking sends) | no (deadlock fix) | periodic channel, 1100-point rows, 2 processes |
+| [swan-exact-restart](1-fixes/swan-exact-restart.md) | SWAN's periodic restart files were always text and held only the spectra, so restarted runs drifted | restarts only (now exact) | standalone SWAN, 40 min straight vs 20 + 20 restarted |
 
 The SWAN patches are written by [`generators/make_swan_patches.py`](generators/make_swan_patches.py)
 from the unpatched SWAN source; the item numbers in their documents are its

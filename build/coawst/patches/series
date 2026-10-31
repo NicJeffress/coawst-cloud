@@ -19,3 +19,4 @@
 1-fixes/swan-vegetation-fixes.patch
 1-fixes/swan-periodic-fixes.patch
 1-fixes/swan-halo-hang.patch
+1-fixes/swan-exact-restart.patch
