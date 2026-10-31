@@ -35,7 +35,8 @@ that go round an island and close on themselves. Application flag
   counted from year 0 (`TIME_REF = 0`). With `DSTART = 0` ROMS's step
   counter overflows (time - DSTART is about 1.6e10 steps) and ends up at 1;
   a fresh run does not notice, but a restarted run then starts its time
-  stepping cold (Euler instead of AB3) and is not exact.
+  stepping cold (Euler instead of AB3) and is not exact. With the engine's
+  `roms-restart-step-count` fix, such a restart stops with a message.
 
 ## Needs
 

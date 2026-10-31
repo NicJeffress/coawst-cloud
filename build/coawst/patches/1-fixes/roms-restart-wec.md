@@ -331,9 +331,8 @@ restarted run's first step was taken as a cold start: Euler, then AB2,
 instead of AB3 with the restored history. The fix is in the case: `DSTART`
 equal to the initial time (730119 days), after which the case restarts to
 1e-11. A15's initial file has a plain time, so its counter continues and it
-was never affected. A guard that stops a restart when the step counter
-cannot hold `(time - DSTART)/DT` would turn this silent error into a clear
-one; not part of this patch.
+was never affected. The next patch, `roms-restart-step-count`, stops such a
+restart with a message instead.
 
 ## Who is affected
 

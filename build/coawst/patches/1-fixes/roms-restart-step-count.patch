@@ -1,0 +1,107 @@
+diff -ruN a/ROMS/Utility/get_state.F b/ROMS/Utility/get_state.F
+--- a/ROMS/Utility/get_state.F
++++ b/ROMS/Utility/get_state.F
+@@ -202,6 +202,7 @@
+       real(dp), parameter :: Fscl = 1.0_r8
+ 
+       real(dp) :: INPtime, Tmax, my_dstart, scale, time_scale
++      real(dp) :: my_step
+       real(r8) :: Fmax, Fmin
+ 
+       real(dp), allocatable :: TimeVar(:)
+@@ -436,7 +437,42 @@
+         IF (msg.eq.1) THEN            ! processing initial conditions
+           time(ng)=INPtime
+           tdays(ng)=time(ng)*sec2day
+-          ntstart(ng)=NINT((time(ng)-dstart*day2sec)/dt(ng))+1
++!
++!  roms-restart-step-count: the step number of the start time must fit
++!  ROMS's integer step counter. If it does not (for example an initial
++!  file dated in calendar time with DSTART = 0), NINT overflows and
++!  ntstart becomes garbage: negative (then 1) or a large positive number
++!  that puts output on the wrong steps. A perfect restart then takes its
++!  first step as a cold start (iic = ntfirst = 1) or loses its step count:
++!  stop instead. Other runs start the counter at 1, with a warning.
++!
++          my_step=(time(ng)-dstart*day2sec)/dt(ng)+1.0_dp
++          IF ((my_step.lt.0.5_dp).or.                                   &
++     &        (my_step.ge.REAL(HUGE(ntstart(ng)),dp))) THEN
++            IF (PerfectRST(ng)) THEN
++              IF (Master) THEN
++                WRITE (stdout,'(/,a)') ' GET_STATE - perfect restart: '//&
++     &            'the step number of the restart time does not fit'//  &
++     &            ' the step counter:'
++                WRITE (stdout,'(a,1p,e12.4,a,e12.4,a,0p,f14.4,a)')      &
++     &            '   (time - DSTART)/DT + 1 = ', my_step,              &
++     &            '  (time = ', time(ng), ' s, DSTART = ', dstart,      &
++     &            ' days)'
++                WRITE (stdout,'(a)') '   Set DSTART (days since '//     &
++     &            'TIME_REF) to the start of the run, the time of the'//&
++     &            ' initial file.'
++              END IF
++              exit_flag=2
++              RETURN
++            END IF
++            IF (Master) WRITE (stdout,'(/,a,1p,e12.4,a,/,a)')           &
++     &        ' GET_STATE - warning: (time - DSTART)/DT + 1 = ', my_step,&
++     &        ' does not fit the step counter; it starts at 1.',        &
++     &        '   Set DSTART to the start of the run (restarts need it).'
++            ntstart(ng)=1
++          ELSE
++            ntstart(ng)=NINT((time(ng)-dstart*day2sec)/dt(ng))+1
++          END IF
+           IF (ntstart(ng).lt.1) ntstart(ng)=1
+           ntend(ng)=ntstart(ng)+ntimes(ng)-1
+           IF (PerfectRST(ng)) THEN
+@@ -710,6 +746,7 @@
+       real(dp), parameter :: Fscl = 1.0_r8
+ 
+       real(dp) :: INPtime, Tmax, my_dstart, scale, time_scale
++      real(dp) :: my_step
+       real(r8) :: Fmax, Fmin
+ 
+       real(dp), allocatable :: TimeVar(:)
+@@ -950,7 +987,42 @@
+         IF (msg.eq.1) THEN            ! processing initial conditions
+           time(ng)=INPtime
+           tdays(ng)=time(ng)*sec2day
+-          ntstart(ng)=NINT((time(ng)-dstart*day2sec)/dt(ng))+1
++!
++!  roms-restart-step-count: the step number of the start time must fit
++!  ROMS's integer step counter. If it does not (for example an initial
++!  file dated in calendar time with DSTART = 0), NINT overflows and
++!  ntstart becomes garbage: negative (then 1) or a large positive number
++!  that puts output on the wrong steps. A perfect restart then takes its
++!  first step as a cold start (iic = ntfirst = 1) or loses its step count:
++!  stop instead. Other runs start the counter at 1, with a warning.
++!
++          my_step=(time(ng)-dstart*day2sec)/dt(ng)+1.0_dp
++          IF ((my_step.lt.0.5_dp).or.                                   &
++     &        (my_step.ge.REAL(HUGE(ntstart(ng)),dp))) THEN
++            IF (PerfectRST(ng)) THEN
++              IF (Master) THEN
++                WRITE (stdout,'(/,a)') ' GET_STATE - perfect restart: '//&
++     &            'the step number of the restart time does not fit'//  &
++     &            ' the step counter:'
++                WRITE (stdout,'(a,1p,e12.4,a,e12.4,a,0p,f14.4,a)')      &
++     &            '   (time - DSTART)/DT + 1 = ', my_step,              &
++     &            '  (time = ', time(ng), ' s, DSTART = ', dstart,      &
++     &            ' days)'
++                WRITE (stdout,'(a)') '   Set DSTART (days since '//     &
++     &            'TIME_REF) to the start of the run, the time of the'//&
++     &            ' initial file.'
++              END IF
++              exit_flag=2
++              RETURN
++            END IF
++            IF (Master) WRITE (stdout,'(/,a,1p,e12.4,a,/,a)')           &
++     &        ' GET_STATE - warning: (time - DSTART)/DT + 1 = ', my_step,&
++     &        ' does not fit the step counter; it starts at 1.',        &
++     &        '   Set DSTART to the start of the run (restarts need it).'
++            ntstart(ng)=1
++          ELSE
++            ntstart(ng)=NINT((time(ng)-dstart*day2sec)/dt(ng))+1
++          END IF
+           IF (ntstart(ng).lt.1) ntstart(ng)=1
+           ntend(ng)=ntstart(ng)+ntimes(ng)-1
+           IF (PerfectRST(ng)) THEN

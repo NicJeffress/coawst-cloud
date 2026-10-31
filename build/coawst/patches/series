@@ -16,6 +16,7 @@
 1-fixes/roms-limit-bstress.patch
 1-fixes/roms-wetdry-stokes.patch
 1-fixes/roms-restart-wec.patch
+1-fixes/roms-restart-step-count.patch
 1-fixes/swan-nc-crash.patch
 1-fixes/swan-stop-on-input-errors.patch
 1-fixes/swan-output-fixes.patch

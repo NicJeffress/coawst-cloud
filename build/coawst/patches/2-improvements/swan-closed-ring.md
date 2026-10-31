@@ -285,7 +285,8 @@ patch:
   restart time). Setting `DSTART = 730119` days (2000-01-01 from year 0) in
   the case's `ocean.in` fixes it. Runs without a restart are bit-identical
   with or without it. Any case whose initial file carries a calendar date
-  needs `DSTART` set to that date.
+  needs `DSTART` set to that date. Since `roms-restart-step-count`, a
+  restart with such a `DSTART` stops with a message.
 
 ## Limits
 
