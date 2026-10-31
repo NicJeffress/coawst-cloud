@@ -62,7 +62,7 @@ outwards.
    - *symmetry*: with inward waves, Hs turned by 6 columns differs by less
      than 1 % of Hs, and no more near the seam than far from it (factor 1.5);
    - *unchanged*: A15 before = after, bit for bit;
-   - *restart*: reported only (OPEN, see below).
+   - *restart*: 30 + 30 min restarted equals 60 min straight (within 1e-8).
 
    `plot.py` draws the document's figure.
 
@@ -91,9 +91,11 @@ control VM.
 | seam_shift | at most 0.28 of SWAN's 1-vs-5-iteration difference (0.3 mm sea level, 6 mm Hs, 2 cm/s radial current, on the crest beside the seams) |
 | symmetry | Hs repeats every 10 degrees within 8.6e-3 m (0.55 %), near the seam 7.4e-3, far 8.0e-3 m |
 | unchanged | A15 bit-identical |
-| restart | OPEN: 4.5e-5 relative; ROMS departs in its first step after the restart; not this patch (see `roms-restart-wec.md`) |
+| restart | 1e-11 relative (zeta, currents, AKv, tke, SWAN Hs bit-identical), after the case's `DSTART` was set (see below) |
 
 Details and the figure in the patch document. The runs were made with the
 case's grid file before a correction of its u- and psi-point coordinates
 (they were one column off); ROMS does not use those coordinates in this
-case, and every other input is bit-identical.
+case, and every other input is bit-identical. They were also made before the
+case's `DSTART` was set; that changes only restarted runs (a fresh run is
+bit-identical either way), and the restart run is the one made after it.

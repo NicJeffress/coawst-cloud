@@ -81,5 +81,5 @@ means SWAN's output is bit-identical.
 | noriver | 2.1e-2 m/s | 4.7e-10 m/s, SWAN bit-identical |
 | records | | finished, 4 records, new variables on `ocean_time` |
 
-Details, how `turbulence_halo` was traced, and an open residual on the
-circular-island O-grid, in the patch document.
+Details, how `turbulence_halo` was traced, and why a restart needs the
+right `DSTART` (traced on the circular-island case), in the patch document.

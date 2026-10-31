@@ -30,6 +30,12 @@ that go round an island and close on themselves. Application flag
   mixing, SSW bottom boundary layer, T and S fixed), with `CURVGRID` and the
   Coriolis parameter 0. ROMS DT 4 s, NDTFAST 10 (barotropic Courant 0.18);
   SWAN step 60 s; coupling every 600 s.
+- **Start date**: the initial file's time is 2000-01-01 ("seconds since
+  2000-01-01"), and `ocean.in` has `DSTART = 730119` days, the same date
+  counted from year 0 (`TIME_REF = 0`). With `DSTART = 0` ROMS's step
+  counter overflows (time - DSTART is about 1.6e10 steps) and ends up at 1;
+  a fresh run does not notice, but a restarted run then starts its time
+  stepping cold (Euler instead of AB3) and is not exact.
 
 ## Needs
 

@@ -432,7 +432,7 @@ LtracerSponge == F F                            ! temperature, salinity, inert
 ! origin for tidal forcing, and model reference time for output
 ! NetCDF units attribute.
 
-      DSTART =  0.0d0                      ! days
+      DSTART =  730119.0d0                 ! days = 2000-01-01, the initial file's time (TIME_REF 0); with 0, ROMS's step counter overflows and a restarted run starts its time stepping cold
   TIDE_START =  0.0d0                      ! days
     TIME_REF =  0.0d0                      ! yyyymmdd.dd
 

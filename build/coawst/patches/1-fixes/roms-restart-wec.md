@@ -316,18 +316,24 @@ in the stratified A15 variant: 1.6e-3 m/s and 0.03 in salinity off 10 min after
 the restart before the masked-point changes, 3.7e-9 m/s (round-off) after all
 three of them (fluxes, GLS fields, bed properties).
 
-## Open: a residual on the circular-island O-grid
+## Not this patch: a restart needs the right DSTART
 
-On `tests/cases/Circle_Island` (closed O-grid, waves breaking all round a
-reef crest; test of `swan-closed-ring`) a restart is not exact: 4.5e-5 of the
-field sizes at 60 min (up to 4e-5 m/s in currents). Everything the history
-holds is identical at the restart time (state, SWAN's fields, Stokes drift,
-WEC stresses), and the restarted run departs in its first step, in the top
-layer over the crest (3.7e-3 m/s in u, v after one 4 s step). It is not the
-tiling (1x6 and 6x1 both show it; A15 at 6x1 restarts exactly), not
-`CURVGRID` (a build without it shows it too), and not the restart-time
-exchange of water level and bottom roughness `ZO` (A15 has the same
-differences there and restarts exactly). Still to be traced.
+On the circular-island test case (`tests/cases/Circle_Island`), the first
+version of the case restarted 4.5e-5 off. Every field of the history agreed
+at the restart time, and the restarted run departed in its first step.
+Traced on 2026-10-31 with debug prints in `pre_step3d` and `step3d_uv`. The
+case's initial file has a calendar time ("seconds since 2000-01-01"), so
+with `TIME_REF = 0` the model time is about 6.3e10 s. With `DSTART = 0`,
+ROMS's step number `(time - DSTART)/DT + 1` (about 1.6e10) overflows its
+4-byte counter, which ends up at 1. `get_state` sets `ntfirst = 1` for a
+perfect restart, expecting the counter to continue (it would be 451), so the
+restarted run's first step was taken as a cold start: Euler, then AB2,
+instead of AB3 with the restored history. The fix is in the case: `DSTART`
+equal to the initial time (730119 days), after which the case restarts to
+1e-11. A15's initial file has a plain time, so its counter continues and it
+was never affected. A guard that stops a restart when the step counter
+cannot hold `(time - DSTART)/DT` would turn this silent error into a clear
+one; not part of this patch.
 
 ## Who is affected
 

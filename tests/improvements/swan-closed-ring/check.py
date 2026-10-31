@@ -38,8 +38,7 @@ Checks (PASS/FAIL each):
               seam than far from it
   unchanged   a15-before and a15-after bit-identical (ROMS history and
               SWAN's Hs): the patch changes nothing on grids that do not close
-  restart     part2's last record equals straight's (within 1e-8 relative);
-              reported, not counted (OPEN: a ROMS residual on this case)
+  restart     part2's last record equals straight's (within 1e-8 relative)
 """
 import sys
 from pathlib import Path
@@ -309,9 +308,8 @@ def main():
                 y = np.ma.filled(b[name][-1].astype(float), np.nan)
                 worst = max(worst, float(np.nanmax(np.abs(x - y))) / scale(x))
             same_t = float(a["ocean_time"][-1]) == float(b["ocean_time"][-1])
-        print(f"restart     {'PASS' if same_t and worst <= RESTART_TOL else 'OPEN'}  straight vs restarted "
-              f"at the same time {same_t}: max |diff| / 99th pct {worst:.1e} (not counted: a ROMS residual "
-              f"of this case, see the swan-closed-ring document)")
+        verdict("restart", same_t and worst <= RESTART_TOL,
+                f"straight vs restarted at the same time {same_t}: max |diff| / 99th pct {worst:.1e}")
     print("PASS" if ok_all else "FAIL")
     return 0 if ok_all else 1
 
