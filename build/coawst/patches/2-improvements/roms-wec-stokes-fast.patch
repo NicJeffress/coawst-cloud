@@ -1,0 +1,113 @@
+--- a/ROMS/Nonlinear/WEC/wec_stokes.F
++++ b/ROMS/Nonlinear/WEC/wec_stokes.F
+@@ -280,6 +280,13 @@
+       integer  :: is
+       real(r8) :: facto1, facto2
+       real(r8) :: sdrx, sdry
++#  ifdef SPECTRUM_STOKES
++!  roms-wec-stokes-fast. Per frequency bin: F at the lower W level
++!  (Flo, kept from the layer below for bins 1..nlo), at the upper W
++!  level (Fhi), and SINH(kD)**2 (den, k-independent, bins 1..nden).
++      integer  :: nlo, nden
++      real(dp), dimension(MSCs) :: Flo, Fhi, den
++#  endif
+ # endif
+ 
+ # include "set_bounds.h"
+@@ -390,6 +397,8 @@
+           fac3=Dstp(i-1,j)+Dstp(i,j)
+           ofac3=1.0_r8/fac3
+ !
++          nlo=0
++          nden=0
+           DO k=1,N(ng)
+             cff6=-1.0_r8+((z_w(i-1,j,k)+z_w(i,j,k))-                   &
+      &                   (z_w(i-1,j,0)+z_w(i,j,0)))*ofac3
+@@ -427,14 +436,24 @@
+ ! Also, since cff4<cff2<36, sinh(cff4)/cff4 from layer averaging
+ ! is always within r8 precision.
+ !            
+-                facto2=SINH(cff4)*COSH(cff3-cff2)/                      &
+-     &                    (2.0_r8*cff4*SINH(0.5_r8*cff3)**2.0_r8+eps)
++!  sinh(cff4)*cosh(cff3-cff2) = 0.5*(F(cff6)-F(cff7)) with
++!  F(c) = SINH(cff3*(c+1)): one SINH per W level and bin.
++                IF (is.gt.nlo) Flo(is)=SINH(cff3*(cff7+1.0_r8))
++                Fhi(is)=SINH(cff3*(cff6+1.0_r8))
++                IF (is.gt.nden) THEN
++                  den(is)=SINH(0.5_r8*cff3)**2.0_r8
++                  nden=is
++                END IF
++                facto2=0.5_r8*(Fhi(is)-Flo(is))/                        &
++     &                 (2.0_r8*cff4*den(is)+eps)
+               ELSE
+ ! Deep water formulation when kD>=18. Use more accurate expression
+ ! to handle cff2>>kD2deep when k=N(ng) & cff2-cff4=0
+ !               facto2=EXP(-cff2)*SINH(cff4)/cff4
+-                facto2=0.5_r8*(EXP(-cff2+cff4)-EXP(-cff2-cff4))/        &
+-     &                 (cff4+eps)
++!  EXP(-cff2+cff4) = EXP(cff3*cff6), EXP(-cff2-cff4) = EXP(cff3*cff7)
++                IF (is.gt.nlo) Flo(is)=EXP(cff3*cff7)
++                Fhi(is)=EXP(cff3*cff6)
++                facto2=0.5_r8*(Fhi(is)-Flo(is))/(cff4+eps)
+               END IF
+ !
+               sdrx=sdrx+0.5*(spec_us(i-1,j,is)+spec_us(i,j,is))*facto2
+@@ -445,6 +464,9 @@
+ !   
+             END DO
+ !
++!  The upper W level becomes the lower one of the next layer.
++            Flo(1:is-1)=Fhi(1:is-1)
++            nlo=is-1
+             IF (is.eq.MSCs) THEN
+ !
+ ! Either this is top grid layer or dStokes(msc) still significant at 
+@@ -534,6 +556,8 @@
+         DO i=Istr,Iend
+           fac3=Dstp(i,j-1)+Dstp(i,j)
+           ofac3=1.0_r8/fac3
++          nlo=0
++          nden=0
+           DO k=1,N(ng)
+             cff6=-1.0_r8+((z_w(i,j-1,k  )+z_w(i,j,k))-                  &
+      &                    (z_w(i,j-1,0  )+z_w(i,j,0)))*ofac3
+@@ -569,15 +593,25 @@
+ ! cosh & sinh^2 will be within r8 precision. Also, since cff4<cff2<36,
+ ! sinh(cff4)/cff4 from layer averaging is always within r8 precision.
+ !
+-                facto2=SINH(cff4)*COSH(cff3-cff2)/                      &
+-     &                     (2.0_r8*cff4*SINH(0.5_r8*cff3)**2.0_r8+eps)
++!  sinh(cff4)*cosh(cff3-cff2) = 0.5*(F(cff6)-F(cff7)) with
++!  F(c) = SINH(cff3*(c+1)): one SINH per W level and bin.
++                IF (is.gt.nlo) Flo(is)=SINH(cff3*(cff7+1.0_r8))
++                Fhi(is)=SINH(cff3*(cff6+1.0_r8))
++                IF (is.gt.nden) THEN
++                  den(is)=SINH(0.5_r8*cff3)**2.0_r8
++                  nden=is
++                END IF
++                facto2=0.5_r8*(Fhi(is)-Flo(is))/                        &
++     &                 (2.0_r8*cff4*den(is)+eps)
+               ELSE
+ !
+ ! Deep water formulation when kD>=18. Use more accurate expression 
+ ! to handle cff2>>kD2deep when k=N(ng)
+ !
+-                facto2=0.5_r8*(EXP(-cff2+cff4)-                         &
+-                               EXP(-cff2-cff4))/(cff4+eps)
++!  EXP(-cff2+cff4) = EXP(cff3*cff6), EXP(-cff2-cff4) = EXP(cff3*cff7)
++                IF (is.gt.nlo) Flo(is)=EXP(cff3*cff7)
++                Fhi(is)=EXP(cff3*cff6)
++                facto2=0.5_r8*(Fhi(is)-Flo(is))/(cff4+eps)
+               END IF
+ !
+               sdry=sdry+0.5*(spec_vs(i,j-1,is)+spec_vs(i,j,is))*facto2
+@@ -586,6 +620,9 @@
+               cff2 = -0.5_r8*cff3*(cff6+cff7)
+             END DO
+ !
++!  The upper W level becomes the lower one of the next layer.
++            Flo(1:is-1)=Fhi(1:is-1)
++            nlo=is-1
+             IF (is.eq.MSCs) THEN
+ !
+ ! Either this is top grid layer or dStokes(msc) still significant at 

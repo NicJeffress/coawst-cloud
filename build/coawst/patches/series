@@ -28,3 +28,4 @@
 2-improvements/swan-netcdf-output.patch
 2-improvements/swan-netcdf4-compression.patch
 2-improvements/swan-periodic-curvilinear.patch
+2-improvements/roms-wec-stokes-fast.patch
