@@ -26,3 +26,4 @@
 
 # 2. Improvements
 2-improvements/swan-netcdf-output.patch
+2-improvements/swan-netcdf4-compression.patch

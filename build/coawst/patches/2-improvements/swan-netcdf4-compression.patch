@@ -1,0 +1,139 @@
+--- a/SWAN/src/agioncmd.ftn90
++++ b/SWAN/src/agioncmd.ftn90
+@@ -132,6 +132,7 @@
+ !     e. set when opening an existing file or creation of a variable in
+ !        a new file
+ !
++#include "swancpp.h"
+       module agioncmd
+         use netcdf
+         use nctablemd
+@@ -251,7 +252,12 @@
+             end if
+ 
+             write(history,'(a,f3.1)') 'Created with agioncmd version ', AGIONCMD_VERSION
++#if defined OUT_NETCDF4
++            ! compressed NetCDF-4/HDF5 file, as ROMS (swan-netcdf4-compression)
++            call nccheck ( nf90_create( ncfile, IOR(NF90_NOCLOBBER, NF90_NETCDF4), ncid) )
++#else
+             call nccheck ( nf90_create( ncfile, NF90_NOCLOBBER + NF90_64BIT_OFFSET, ncid) )
++#endif
+             if ( recordaxe%nstatm ) then
+                 call nccheck ( nf90_def_dim( ncid, 'time', NF90_UNLIMITED, recordaxe%dimid ) );
+                 call nccheck ( nf90_def_var( ncid, 'time', NF90_INT, recordaxe%dimid, recordaxe%varid ) )
+@@ -292,6 +298,15 @@
+             call nccheck( nf90_redef(ncid) )
+ 
+         end subroutine create_ncfile
++
++        subroutine agnc_compress( ncid, varid )
++            ! shuffle + deflate level 1 (lossless) in NetCDF-4 files, as
++            ! ROMS's def_var.F (swan-netcdf4-compression; no cpp names in comments)
++            integer,              intent(in)                    :: ncid, varid
++#if defined OUT_NETCDF4 && defined DEFLATE
++            call nccheck ( nf90_def_var_deflate( ncid, varid, 1, 1, 1 ) )
++#endif
++        end subroutine agnc_compress
+ 
+         subroutine coordinate_names_units( lunit, xname, xunit, yname, yunit )
+             character(len=10),         intent(   in):: lunit
+@@ -324,9 +339,11 @@
+                 call nccheck ( nf90_def_var( ncid, xname, NF90_FLOAT, &
+                                             (/ mapgrid%lon_dimid, mapgrid%lat_dimid /), &
+                                             mapgrid%lon_varid ) )
++                call agnc_compress( ncid, mapgrid%lon_varid )
+                 call nccheck ( nf90_def_var( ncid, yname, NF90_FLOAT, &
+                                             (/ mapgrid%lon_dimid, mapgrid%lat_dimid /), &
+                                             mapgrid%lat_varid ) )
++                call agnc_compress( ncid, mapgrid%lat_varid )
+                 call nccheck ( nf90_put_att( ncid, mapgrid%lon_varid, '_FillValue', NF90_FILL_FLOAT) )
+                 call nccheck ( nf90_put_att( ncid, mapgrid%lat_varid, '_FillValue', NF90_FILL_FLOAT) )
+             else
+@@ -407,9 +424,11 @@
+                 if ( present(mapgrid) ) then
+                     call nccheck ( nf90_def_var( ncid, 'density', nf90_var_type, &
+                                             (/ spcgrid%dir_dimid, spcgrid%frq_dimid, mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 else
+                     call nccheck ( nf90_def_var( ncid, 'density', nf90_var_type, &
+                                         (/ spcgrid%dir_dimid, spcgrid%frq_dimid, pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 end if
+ 
+                 if ( do_scale ) then
+@@ -440,9 +459,11 @@
+                     if ( present(mapgrid) ) then
+                         call nccheck ( nf90_def_var( ncid, 'scale_density', NF90_FLOAT, &
+                                                 (/ mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                        call agnc_compress( ncid, evarid )
+                     else
+                         call nccheck ( nf90_def_var( ncid, 'scale_density', NF90_FLOAT, &
+                                                 (/ pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                        call agnc_compress( ncid, evarid )
+                     end if
+                     call nccheck ( nf90_put_att( ncid, evarid, 'note', &
+                                         'multiply density values with this scale factor') )
+@@ -452,9 +473,11 @@
+                 if ( present(mapgrid) ) then
+                     call nccheck ( nf90_def_var( ncid, 'energy_1d', nf90_var_type, &
+                                             (/ spcgrid%frq_dimid, mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 else
+                     call nccheck ( nf90_def_var( ncid, 'energy_1d', nf90_var_type, &
+                                             (/ spcgrid%frq_dimid, pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 end if
+                 if ( do_scale ) then
+                     call nccheck ( nf90_put_att( ncid, evarid, '_FillValue',NF90_FILL_SHORT) )
+@@ -482,9 +505,11 @@
+                     if ( present(mapgrid) ) then
+                         call nccheck ( nf90_def_var( ncid, 'scale_energy_1d', NF90_FLOAT, &
+                                                 (/ mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                        call agnc_compress( ncid, evarid )
+                     else
+                         call nccheck ( nf90_def_var( ncid, 'scale_energy_1d', NF90_FLOAT, &
+                                                 (/ pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                        call agnc_compress( ncid, evarid )
+                     end if
+                     call nccheck ( nf90_put_att( ncid, evarid, 'long_name', &
+                             'Multiply energy_1d values with this scale factor') )
+@@ -498,9 +523,11 @@
+                 if ( present(mapgrid) ) then
+                     call nccheck ( nf90_def_var( ncid, 'theta_1d', NF90_BYTE, &
+                                                 (/ spcgrid%frq_dimid, mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 else
+                     call nccheck ( nf90_def_var( ncid, 'theta_1d', NF90_BYTE, &
+                                                 (/ spcgrid%frq_dimid, pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+ 
+                 end if
+                 call nccheck ( nf90_put_att( ncid, evarid, 'units', 'degree') )
+@@ -516,9 +543,11 @@
+                 if ( present(mapgrid) ) then
+                     call nccheck ( nf90_def_var( ncid, 'spread_1d', NF90_BYTE, &
+                                                 (/ spcgrid%frq_dimid, mapgrid%lon_dimid, mapgrid%lat_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 else
+                     call nccheck ( nf90_def_var( ncid, 'spread_1d', NF90_BYTE, &
+                                                 (/ spcgrid%frq_dimid, pntgrid%pnt_dimid, ra_dimid /), evarid ) )
++                    call agnc_compress( ncid, evarid )
+                 end if
+                 call nccheck ( nf90_put_att( ncid, evarid, 'units', 'degree') )
+                 call nccheck ( nf90_put_att( ncid, evarid, 'long_name', &
+@@ -584,6 +613,7 @@
+ 
+             call nccheck ( nf90_def_var( ncid, trecord%name , trecord%nctype, &
+                                             (/ lon_dimid, lat_dimid, ra_dimid /), varid ) )
++            call agnc_compress( ncid, varid )
+ 
+             call agnc_add_variable_attributes( ncid, varid, trecord )
+ 
+@@ -604,6 +634,7 @@
+ 
+             call nccheck ( nf90_def_var( ncid, trecord%name , trecord%nctype, &
+                                             (/ pnt_dimid, ra_dimid /), varid ) )
++            call agnc_compress( ncid, varid )
+ 
+             call agnc_add_variable_attributes( ncid, varid, trecord )
+ 

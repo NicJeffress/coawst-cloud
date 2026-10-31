@@ -56,5 +56,6 @@ its function there (`change_<name>`).
 | Patch | What it improves | Changes results? | Test |
 |---|---|---|---|
 | [swan-netcdf-output](2-improvements/swan-netcdf-output.md) | SWAN refused most quantities as NetCDF and stored most others as packed 16-bit integers (Hs in 0.76 mm steps); now every 2-D quantity, as 32-bit float | output only (NetCDF files); the run is bit-identical | Inlet_test, each quantity as .nc and .mat |
+| [swan-netcdf4-compression](2-improvements/swan-netcdf4-compression.md) | SWAN ignored `OUT_NETCDF4`/`DEFLATE` and always wrote classic, uncompressed files; now compressed NetCDF-4, as ROMS | output only: same values, files 2-4x smaller (with the options) | Inlet_test, three builds, every variable compared |
 
 More improvements and the experimental options follow.
