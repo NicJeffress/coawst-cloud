@@ -1,0 +1,119 @@
+--- a/SWAN/src/swanparll.ftn
++++ b/SWAN/src/swanparll.ftn
+@@ -3183,7 +3183,13 @@
+ !WFR!
+ !WFR      USE OCPCOMM4                                                        40.41
+ !WFR      USE SWCOMM3                                                         40.41
+-!WFR      USE M_PARALL                                                        40.31
++!WFR      USE M_PARALL
++#ifdef SWAN_MODEL
++!WFR      USE M_MPI
++!WFR      USE mct_coupler_params
++#else
++!WFR      USE MPI
++#endif
+ !WFR!
+ !WFR      IMPLICIT NONE
+ !WFR!
+@@ -3257,8 +3263,9 @@
+ !WFR!     WORK  :     work array to store data to be sent to or
+ !WFR!                 received from neighbour
+ !WFR!
+-!WFR      INTEGER IDOM, IENT, INB, ISTART, ITAG, K, NNEIGH, NOVLU
+-!WFR      REAL    WORK(MAX(MXC,MYC))
++!WFR      INTEGER IDOM, IENT, IERR, INB, ISTART, ITAG, K, NNEIGH, NOVLU
++!WFR      INTEGER, ALLOCATABLE :: IREQ(:)
++!WFR      REAL, ALLOCATABLE :: WRCV(:,:), WSND(:,:)
+ !WFR!
+ !WFR!  8. Subroutines used
+ !WFR!
+@@ -3311,53 +3318,54 @@
+ !WFR
+ !WFR      NNEIGH = IBLKAD(1)
+ !WFR
+-!WFR!     --- for all neighbouring subdomains do
+-!WFR
++!WFR!     --- post every receive, then every send, and wait for all:
++!WFR!         blocking sends to all neighbours first deadlock once a
++!WFR!         message exceeds MPI's eager limit (coawst-cloud item 20)
++!WFR
++!WFR      ALLOCATE (WRCV(MAX(MXC,MYC),NNEIGH), WSND(MAX(MXC,MYC),NNEIGH))
++!WFR      ALLOCATE (IREQ(2*NNEIGH))
++!WFR      ITAG = 2
+ !WFR      DO INB = 1, NNEIGH
+-!WFR
+-!WFR!        --- get subdomain number, pointer and size
+-!WFR
+ !WFR         IDOM   = IBLKAD(3*INB-1)
+ !WFR         ISTART = IBLKAD(3*INB+1)
+ !WFR         NOVLU  = IBLKAD(ISTART)
+-!WFR
+-!WFR!        --- store data to be sent in array WORK
+-!WFR
+-!WFR         DO K = 1, NOVLU
+-!WFR            WORK(K) = FIELD(KGRPNT(IBLKAD(ISTART+K)))
+-!WFR         END DO
+-!WFR
+-!WFR!        --- send array WORK
+-!WFR
+-!WFR         ITAG = 2
+-!WFR         CALL SWSENDNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+-!WFR         IF (STPNOW()) RETURN
+-!WFR
++!WFR         CALL MPI_IRECV ( WRCV(1,INB), NOVLU, SWREAL, IDOM-1, ITAG,
++#ifdef SWAN_MODEL
++!WFR     &                    WAV_COMM_WORLD, IREQ(INB), IERR )
++#else
++!WFR     &                    MPI_COMM_WORLD, IREQ(INB), IERR )
++#endif
+ !WFR      END DO
+-!WFR
+-!WFR!     --- for all neighbouring subdomains do
+-!WFR
+ !WFR      DO INB = 1, NNEIGH
+-!WFR
+-!WFR!        --- get subdomain number, pointer and size
+-!WFR
+ !WFR         IDOM   = IBLKAD(3*INB-1)
+ !WFR         ISTART = IBLKAD(3*INB+1)
+ !WFR         NOVLU  = IBLKAD(ISTART)
+-!WFR
+-!WFR!        --- receive next array and store in WORK
+-!WFR
+-!WFR         ITAG  = 2
+-!WFR         CALL SWRECVNB ( WORK, NOVLU, SWREAL, IDOM, ITAG )
+-!WFR         IF (STPNOW()) RETURN
+-!WFR
+-!WFR!        --- store the received data
+-!WFR
+ !WFR         DO K = 1, NOVLU
+-!WFR            FIELD(KGRPNT(IBLKAD(ISTART+NOVLU+K))) = WORK(K)
++!WFR            WSND(K,INB) = FIELD(KGRPNT(IBLKAD(ISTART+K)))
+ !WFR         END DO
+-!WFR
++!WFR         CALL MPI_ISEND ( WSND(1,INB), NOVLU, SWREAL, IDOM-1, ITAG,
++#ifdef SWAN_MODEL
++!WFR     &                    WAV_COMM_WORLD, IREQ(NNEIGH+INB), IERR )
++#else
++!WFR     &                    MPI_COMM_WORLD, IREQ(NNEIGH+INB), IERR )
++#endif
+ !WFR      END DO
++!WFR      CALL MPI_WAITALL ( 2*NNEIGH, IREQ, MPI_STATUSES_IGNORE, IERR )
++!WFR      IF ( IERR.NE.MPI_SUCCESS ) THEN
++!WFR         CALL MSGERR ( 4, 'MPI error in halo exchange SWEXCHG' )
++!WFR         RETURN
++!WFR      END IF
++!WFR
++!WFR!     --- store the received data
++!WFR
++!WFR      DO INB = 1, NNEIGH
++!WFR         ISTART = IBLKAD(3*INB+1)
++!WFR         NOVLU  = IBLKAD(ISTART)
++!WFR         DO K = 1, NOVLU
++!WFR            FIELD(KGRPNT(IBLKAD(ISTART+NOVLU+K))) = WRCV(K,INB)
++!WFR         END DO
++!WFR      END DO
++!WFR      DEALLOCATE (WRCV, WSND, IREQ)
+ !WFR
+ !WFR!TIMG      CALL SWTSTO(203)
+ !WFR

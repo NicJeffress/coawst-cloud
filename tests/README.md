@@ -32,6 +32,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
 | `fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR` | swan-vegetation-fixes | source check; Veg_test with VEGETATION 3, submerged and emergent plants | 25 min |
 | `fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR` | swan-periodic-fixes | source check; standalone periodic reef (cases/Swan_Periodic_Test), 1 and 4 SWAN processes | 25 min |
+| `fixes/swan-halo-hang/run.sh OUTDIR [TIMEOUT_S]` | swan-halo-hang | periodic channel with 1100-point rows on 2 SWAN processes: hangs before, finishes after | 15 min |
 
 ## Tools
 
