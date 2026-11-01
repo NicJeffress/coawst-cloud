@@ -24,6 +24,10 @@ and periodic SWAN; see its README) plus vegetation drag everywhere.
   canopy it gives the same result as `VEGETATION 1 0.4 0.5 1 1.0` to
   single-precision rounding. Needs `1-fixes/swan-vegetation-fixes.patch`.
 - Spatially varying canopies are written into a copy of `init_reef.nc`.
+  `make_patchy_init.py` writes `init_reef_patchy.nc`: over the backreef,
+  crest and forereef 30 % dense (4 m-2), 30 % sparse (1 m-2) and 40 % bare,
+  in patches of about 150 m (used by
+  `tests/experimental/roms-veg-implicit`; point `ININAME` to it).
 
 Kept as shipped in COAWST v3.9 (author's decision): `VEG_TURB` uses only the
 canopy time scale (the free-turbulence time scale `k/epsilon` is never used);

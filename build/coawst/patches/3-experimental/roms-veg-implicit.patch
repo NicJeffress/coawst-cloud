@@ -1,0 +1,365 @@
+diff -ruN a/ROMS/Nonlinear/Vegetation/vegetation_drag.F b/ROMS/Nonlinear/Vegetation/vegetation_drag.F
+--- a/ROMS/Nonlinear/Vegetation/vegetation_drag.F
++++ b/ROMS/Nonlinear/Vegetation/vegetation_drag.F
+@@ -184,6 +184,10 @@
+       dab=Inival
+       ru_veg=Inival
+       rv_veg=Inival
++# ifdef VEG_DRAG_IMPLICIT
++      VEG(ng)%cu_veg=Inival
++      VEG(ng)%cv_veg=Inival
++# endif
+       Lveg=Inival
+ !
+ # ifdef WET_DRY
+@@ -334,6 +338,10 @@
+ !                     multiple vegetation types are concomitant
+ !
+               ru_veg(i,j,k)=ru_loc_veg(i,j,k,iveg)+ru_veg(i,j,k)
++# ifdef VEG_DRAG_IMPLICIT
++              VEG(ng)%cu_veg(i,j,k)=VEG(ng)%cu_veg(i,j,k)+          &
++     &                              0.5_r8*(wrk(i-1,j)+wrk(i,j))*cff2
++# endif
+ 
+ !
+ # ifdef WET_DRY
+@@ -360,6 +368,10 @@
+ !   which can be there at the same point (i,j,k)
+ !
+               rv_veg(i,j,k)=rv_loc_veg(i,j,k,iveg)+rv_veg(i,j,k)
++# ifdef VEG_DRAG_IMPLICIT
++              VEG(ng)%cv_veg(i,j,k)=VEG(ng)%cv_veg(i,j,k)+          &
++     &                              0.5_r8*(wrk(i,j-1)+wrk(i,j))*cff2
++# endif
+ 
+ !
+ # ifdef WET_DRY
+@@ -454,6 +466,62 @@
+         END DO
+       END DO
+ !
++# ifdef VEG_DRAG_IMPLICIT
++!
++!-----------------------------------------------------------------------
++!  Drag coefficient of the barotropic mode (VEG_DRAG_IMPLICIT): c2 such
++!  that c2*ubar is the depth-integrated drag sum(cu_veg*u) now, so the
++!  canopy flow profile is kept; sum(cu_veg) where ubar is tiny or the
++!  ratio is not positive; at most twice sum(cu_veg).
++!-----------------------------------------------------------------------
++!
++      DO j=Jstr,Jend
++        DO i=IstrU,Iend
++          cff1=0.0_r8
++          cff2=0.0_r8
++          cff3=0.0_r8
++          cff4=0.0_r8
++          DO k=1,N(ng)
++            cff=0.5_r8*(Hz(i-1,j,k)+Hz(i,j,k))
++            cff1=cff1+VEG(ng)%cu_veg(i,j,k)
++            cff2=cff2+VEG(ng)%cu_veg(i,j,k)*u(i,j,k,nrhs)
++            cff3=cff3+cff*u(i,j,k,nrhs)
++            cff4=cff4+cff
++          END DO
++          cff3=cff3/cff4
++          cff5=cff1
++          IF (ABS(cff3).gt.1.0E-4_r8) THEN
++            cff6=cff2/cff3
++            IF (cff6.gt.0.0_r8) cff5=MIN(cff6,2.0_r8*cff1)
++          END IF
++          VEG(ng)%c2u_veg(i,j)=cff5
++        END DO
++      END DO
++!
++      DO j=JstrV,Jend
++        DO i=Istr,Iend
++          cff1=0.0_r8
++          cff2=0.0_r8
++          cff3=0.0_r8
++          cff4=0.0_r8
++          DO k=1,N(ng)
++            cff=0.5_r8*(Hz(i,j-1,k)+Hz(i,j,k))
++            cff1=cff1+VEG(ng)%cv_veg(i,j,k)
++            cff2=cff2+VEG(ng)%cv_veg(i,j,k)*v(i,j,k,nrhs)
++            cff3=cff3+cff*v(i,j,k,nrhs)
++            cff4=cff4+cff
++          END DO
++          cff3=cff3/cff4
++          cff5=cff1
++          IF (ABS(cff3).gt.1.0E-4_r8) THEN
++            cff6=cff2/cff3
++            IF (cff6.gt.0.0_r8) cff5=MIN(cff6,2.0_r8*cff1)
++          END IF
++          VEG(ng)%c2v_veg(i,j)=cff5
++        END DO
++      END DO
++# endif
++!
+       RETURN
+       END SUBROUTINE vegetation_drag_tile
+ #endif
+diff -ruN a/ROMS/Nonlinear/Vegetation/vegetation_mod.h b/ROMS/Nonlinear/Vegetation/vegetation_mod.h
+--- a/ROMS/Nonlinear/Vegetation/vegetation_mod.h
++++ b/ROMS/Nonlinear/Vegetation/vegetation_mod.h
+@@ -229,6 +229,12 @@
+         real(r8), pointer :: step2d_uveg(:,:)
+         real(r8), pointer :: step2d_vveg(:,:)
+         real(r8), pointer :: Lveg(:,:,:)
++# ifdef VEG_DRAG_IMPLICIT
++        real(r8), pointer :: cu_veg(:,:,:)
++        real(r8), pointer :: cv_veg(:,:,:)
++        real(r8), pointer :: c2u_veg(:,:)
++        real(r8), pointer :: c2v_veg(:,:)
++# endif
+ #endif
+ #ifdef VEG_FLEX
+         real(r8), pointer :: bend(:,:,:)
+@@ -470,6 +476,14 @@
+ !
+         allocate ( VEG(ng) % Lveg(LBi:UBi,LBj:UBj,N(ng)) )
+         Dmem(ng)=Dmem(ng)+REAL(N(ng),r8)*size2d
++# ifdef VEG_DRAG_IMPLICIT
++        allocate ( VEG(ng) % cu_veg(LBi:UBi,LBj:UBj,N(ng)) )
++        allocate ( VEG(ng) % cv_veg(LBi:UBi,LBj:UBj,N(ng)) )
++        Dmem(ng)=Dmem(ng)+2.0_r8*REAL(N(ng),r8)*size2d
++        allocate ( VEG(ng) % c2u_veg(LBi:UBi,LBj:UBj) )
++        allocate ( VEG(ng) % c2v_veg(LBi:UBi,LBj:UBj) )
++        Dmem(ng)=Dmem(ng)+2.0_r8*size2d
++# endif
+ 
+ # ifdef VEG_FLEX
+ !
+@@ -728,6 +742,10 @@
+               VEG(ng) % ru_veg(i,j,k)  = IniVal
+               VEG(ng) % rv_veg(i,j,k)  = IniVal
+               VEG(ng) % Lveg(i,j,k)    = IniVal
++# ifdef VEG_DRAG_IMPLICIT
++              VEG(ng) % cu_veg(i,j,k)  = IniVal
++              VEG(ng) % cv_veg(i,j,k)  = IniVal
++# endif
+               DO iveg=1,NVEG
+                 VEG(ng) % ru_loc_veg(i,j,k,iveg) = IniVal
+                 VEG(ng) % rv_loc_veg(i,j,k,iveg) = IniVal
+@@ -735,6 +753,10 @@
+             END DO
+             VEG(ng) % step2d_uveg(i,j) = IniVal
+             VEG(ng) % step2d_vveg(i,j) = IniVal
++# ifdef VEG_DRAG_IMPLICIT
++            VEG(ng) % c2u_veg(i,j) = IniVal
++            VEG(ng) % c2v_veg(i,j) = IniVal
++# endif
+           END DO
+         END DO
+ #endif
+diff -ruN a/ROMS/Nonlinear/rhs3d.F b/ROMS/Nonlinear/rhs3d.F
+--- a/ROMS/Nonlinear/rhs3d.F
++++ b/ROMS/Nonlinear/rhs3d.F
+@@ -527,7 +527,7 @@
+       END DO
+ # endif
+ !
+-#  if defined VEGETATION && defined VEG_DRAG
++#  if defined VEGETATION && defined VEG_DRAG && !defined VEG_DRAG_IMPLICIT
+ !
+ !-----------------------------------------------------------------------
+ !  Resistance imposed on the flow by the submerged (seagrass) 
+diff -ruN a/ROMS/Nonlinear/step2d_FB.h b/ROMS/Nonlinear/step2d_FB.h
+--- a/ROMS/Nonlinear/step2d_FB.h
++++ b/ROMS/Nonlinear/step2d_FB.h
+@@ -201,6 +201,9 @@
+ !***********************************************************************
+ !
+       USE mod_param
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++      USE mod_vegetation, ONLY : VEG
++#endif
+       USE mod_clima
+       USE mod_ncparam
+       USE mod_scalars
+@@ -1684,7 +1687,8 @@
+ !              weight(m+1) * Dnew * ubar(:,:,m+1) * on_u(:,:)
+ !
+ !  The bottom drag is part of the 3D forcing (explicit, at time n), as
+-!  in step2d_LF_AM3.h.
++!  in step2d_LF_AM3.h. With VEG_DRAG_IMPLICIT the canopy drag is taken
++!  implicitly here, c2u_veg*ubar(:,:,m+1) (vegetation_drag.F).
+ !
+       DO j=JstrV-1,Jend
+         DO i=IstrU-1,Iend
+@@ -1698,7 +1702,12 @@
+       DO j=Jstr,Jend
+         DO i=IstrU,Iend
+           cff3=cff*(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++          fac1=1.0_r8/(Dnew(i,j)+Dnew(i-1,j)+                           &
++     &               2.0_r8*dtfast(ng)*VEG(ng)%c2u_veg(i,j))
++#else
+           fac1=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
++#endif
+           cff2=rubar(i,j)+rufrc(i,j)
+ #ifdef WET_DRY
+           cff5=ABS(ABS(umask_wet(i,j))-1.0_r8)
+@@ -1726,7 +1735,12 @@
+       DO j=JstrV,Jend
+         DO i=Istr,Iend
+           cff3=cff*(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++          fac2=1.0_r8/(Dnew(i,j)+Dnew(i,j-1)+                           &
++     &               2.0_r8*dtfast(ng)*VEG(ng)%c2v_veg(i,j))
++#else
+           fac2=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
++#endif
+           cff2=rvbar(i,j)+rvfrc(i,j)
+ #ifdef WET_DRY
+           cff5=ABS(ABS(vmask_wet(i,j))-1.0_r8)
+diff -ruN a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -277,6 +277,9 @@
+ !***********************************************************************
+ !
+       USE mod_param
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++      USE mod_vegetation, ONLY : VEG
++#endif
+       USE mod_clima
+       USE mod_ncparam
+       USE mod_scalars
+@@ -2293,7 +2296,8 @@
+       END DO
+ # endif
+ #endif
+-#if defined VEGETATION && defined VEG_DRAG && defined SOLVE3D
++#if defined VEGETATION && defined VEG_DRAG && defined SOLVE3D && \
++    !defined VEG_DRAG_IMPLICIT
+ !
+ !-----------------------------------------------------------------------
+ !  Add in resistance imposed on the flow by the seagrass (3D->2D).
+@@ -2657,7 +2661,12 @@
+         DO j=Jstr,Jend
+           DO i=IstrU,Iend
+             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j)+                          &
++     &                  4.0_r8*cff1*VEG(ng)%c2u_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*cff1*rhs_ubar(i,j))*fac
+@@ -2686,7 +2695,12 @@
+         DO j=JstrV,Jend
+           DO i=Istr,Iend
+             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1)+                          &
++     &                  4.0_r8*cff1*VEG(ng)%c2v_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*cff1*rhs_vbar(i,j))*fac
+@@ -2720,7 +2734,12 @@
+         DO j=Jstr,Jend
+           DO i=IstrU,Iend
+             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j)+                          &
++     &                  4.0_r8*cff1*VEG(ng)%c2u_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*cff1*rhs_ubar(i,j))*fac
+@@ -2743,7 +2762,12 @@
+         DO j=JstrV,Jend
+           DO i=Istr,Iend
+             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1)+                          &
++     &                  4.0_r8*cff1*VEG(ng)%c2v_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*cff1*rhs_vbar(i,j))*fac
+@@ -2773,7 +2797,12 @@
+         DO j=Jstr,Jend
+           DO i=IstrU,Iend
+             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j)+                          &
++     &                  2.0_r8*dtfast(ng)*VEG(ng)%c2u_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*(cff1*rhs_ubar(i,j)+                    &
+@@ -2798,7 +2827,12 @@
+         DO j=JstrV,Jend
+           DO i=Istr,Iend
+             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1)+                          &
++     &                  2.0_r8*dtfast(ng)*VEG(ng)%c2v_veg(i,j))
++#else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*(cff1*rhs_vbar(i,j)+                    &
+diff -ruN a/ROMS/Nonlinear/step3d_uv.F b/ROMS/Nonlinear/step3d_uv.F
+--- a/ROMS/Nonlinear/step3d_uv.F
++++ b/ROMS/Nonlinear/step3d_uv.F
+@@ -28,6 +28,9 @@
+       USE mod_ocean
+       USE mod_scalars
+       USE mod_sources
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++      USE mod_vegetation, ONLY : VEG
++#endif
+ !
+       USE exchange_2d_mod
+       USE exchange_3d_mod
+@@ -605,6 +608,18 @@
+           END DO
+         END DO
+ # endif
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++!
++!  Canopy drag, backward Euler after the implicit vertical viscosity
++!  (VEG_DRAG_IMPLICIT): u = u/(1 + dt cu_veg/Hz).
++!
++        DO k=1,N(ng)
++          DO i=IstrU,Iend
++            u(i,j,k,nnew)=u(i,j,k,nnew)/                           &
++     &                    (1.0_r8+dt(ng)*VEG(ng)%cu_veg(i,j,k)/Hzk(i,k))
++          END DO
++        END DO
++#endif
+ !
+ !  Replace INTERIOR POINTS incorrect vertical mean with more accurate
+ !  barotropic component, ubar=DU_avg1/(D*on_u). Recall that, D=CF(:,0).
+@@ -1072,6 +1087,18 @@
+             END DO
+           END DO
+ # endif
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++!
++!  Canopy drag, backward Euler after the implicit vertical viscosity
++!  (VEG_DRAG_IMPLICIT): v = v/(1 + dt cv_veg/Hz).
++!
++        DO k=1,N(ng)
++          DO i=Istr,Iend
++            v(i,j,k,nnew)=v(i,j,k,nnew)/                           &
++     &                    (1.0_r8+dt(ng)*VEG(ng)%cv_veg(i,j,k)/Hzk(i,k))
++          END DO
++        END DO
++#endif
+ !
+ !  Replace INTERIOR POINTS incorrect vertical mean with more accurate
+ !  barotropic component, vbar=DV_avg1/(D*om_v). Recall that, D=CF(:,0).

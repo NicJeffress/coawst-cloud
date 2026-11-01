@@ -35,3 +35,4 @@
 
 # 3. Experimental (off unless their cpp option is defined)
 3-experimental/roms-step2d-fb.patch
+3-experimental/roms-veg-implicit.patch
