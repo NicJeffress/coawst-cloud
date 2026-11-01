@@ -1,0 +1,49 @@
+--- a/SWAN/src/swanout1.ftn
++++ b/SWAN/src/swanout1.ftn
+@@ -4114,10 +4114,12 @@
+             IY = INT(YC(IP))                                              41.07 40.31
+             RVAL1 = FLOAT(IX)
+             RVAL2 = FLOAT(IY)
++!           swan-force-strip-rows (block_point_owner): a BLOCK point on
++!           grid line k (0-based) is index k+1, as SWCOLBLK takes it
+             IF ( .NOT.EQREAL(XC(IP),RVAL1) .OR. EQREAL(XC(IP),0.) .OR.
+-     &           RTYPE.EQ.'BLKV' ) IX = IX + 1
++     &           RTYPE(1:3).EQ.'BLK' ) IX = IX + 1
+             IF ( .NOT.EQREAL(YC(IP),RVAL2) .OR. EQREAL(YC(IP),0.) .OR.
+-     &           RTYPE.EQ.'BLKV' ) IY = IY + 1
++     &           RTYPE(1:3).EQ.'BLK' ) IY = IY + 1
+             IF ( IX.GE.IXB .AND. IX.LE.IXE .AND.                          40.31
+      &           IY.GE.IYB .AND. IY.LE.IYE ) IONOD(IP) = INODE            40.31
+          END DO                                                           40.31
+--- a/SWAN/src/swanparll.ftn
++++ b/SWAN/src/swanparll.ftn
+@@ -5500,10 +5500,10 @@
+             IF (OPTG.NE.5) THEN
+                RVAL1 = FLOAT(IXK)
+                RVAL2 = FLOAT(IYK)
+-               IF ( .NOT.EQREAL(XC(IP),RVAL1) .OR.
+-     &                   EQREAL(XC(IP),0.   ) ) IXK = IXK + 1
+-               IF ( .NOT.EQREAL(YC(IP),RVAL2) .OR.
+-     &                   EQREAL(YC(IP),0.   ) ) IYK = IYK + 1
++!              swan-force-strip-rows (block_point_owner): a point on
++!              grid line k (0-based) is index k+1, as in SWOEXC
++               IXK = IXK + 1
++               IYK = IYK + 1
+             ELSE
+                IXK = IXK + 1
+                IYK = IYK + 1
+@@ -5540,10 +5540,10 @@
+                IF (OPTG.NE.5) THEN
+                   RVAL1 = FLOAT(IXK)
+                   RVAL2 = FLOAT(IYK)
+-                  IF ( .NOT.EQREAL(XC(IP),RVAL1) .OR.
+-     &                      EQREAL(XC(IP),0.   ) ) IXK = IXK + 1
+-                  IF ( .NOT.EQREAL(YC(IP),RVAL2) .OR.
+-     &                      EQREAL(YC(IP),0.   ) ) IYK = IYK + 1
++!                 swan-force-strip-rows (block_point_owner): a point on
++!                 grid line k (0-based) is index k+1, as in SWOEXC
++                  IXK = IXK + 1
++                  IYK = IYK + 1
+                ELSE
+                   IXK = IXK + 1
+                   IYK = IYK + 1

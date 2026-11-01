@@ -90,19 +90,15 @@ for case, lim in (("str", 1e-4), ("a15", 5e-4)):
 pairs = [(f"{c}-np4", f"{c}-np1", "hsign.nc", None) for c in ("str-mid", "str-seam", "str-flat", "a15-mid", "a15-seam")]
 bad = [f"{a}" for a, b, f, v in pairs if maxdiff(field(a, f, v), field(b, f, v)) != 0]
 check("processes", not bad, f"Hs in {len(pairs)} runs, 4 processes vs 1: " + ("all identical" if not bad else "differ: " + ", ".join(bad)))
-# FORCE with several processes: stock SWAN leaves out the rows at the
-# boundaries between the processes' strips (also on regular grids, with or
-# without REPEATING; not changed by this patch, see its document). Compare
-# where both runs have values, and name the missing rows.
+# FORCE with several processes: stock SWAN left out the rows at the
+# boundaries between the processes' strips (1-fixes/swan-force-strip-rows
+# fixes it); with the series, 4 processes must equal 1 with nothing missing.
 for q in ("xfor", "yfor"):
     a, b = field("str-flat-np4", "force.nc", q), field("str-flat-np1", "force.nc", q)
-    both = ~np.isnan(a) & ~np.isnan(b)
     rows = sorted(set(np.nonzero(np.isnan(a) & ~np.isnan(b))[0].tolist()))
-    whole = all(np.isnan(a[r]).all() for r in rows)
-    w = float(np.max(np.abs(a[both] - b[both])))
-    check(f"processes FORCE {q}", w == 0 and whole and len(rows) <= 3,
-          f"4 processes vs 1: identical where both have values; rows {rows} missing with 4 "
-          f"(the strip boundaries; stock SWAN does the same)")
+    same = np.array_equal(a, b, equal_nan=True)
+    check(f"processes FORCE {q}", same and not rows,
+          f"4 processes vs 1: {'identical' if same else 'differ'}; rows missing with 4: {rows}")
 
 # periodic boundary in effect
 for case in ("str", "a15"):

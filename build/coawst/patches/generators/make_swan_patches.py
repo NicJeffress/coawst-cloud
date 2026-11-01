@@ -371,6 +371,62 @@ def change_compgrid_nc_coordinates():
     files[name] = lines
 
 
+def change_block_point_owner():
+    # block_point_owner: In a parallel run each process outputs the BLOCK
+    #     points it owns (SWOEXC marks them in IONOD), and SWCOLBLK merges the
+    #     process files, taking each point from the process the global map
+    #     BLKND names. Both turned a point's grid coordinate (0-based) into an
+    #     index by INT(XC) + 1, except when XC is a whole number other than 0
+    #     (only BLKV output always added 1). A point on grid line k > 0 thus
+    #     got index k instead of k+1: one row off. The first row of each
+    #     process's strip was then output by the process below it, as its
+    #     first halo row. That is harmless for quantities computed from the
+    #     spectrum, but FORCE (SWOEXF) also needs Hs (COMPDA) at the rows
+    #     either side, and Hs is only set up to the first halo row: the point
+    #     got the exception value, so FORCE lost one row at every strip
+    #     boundary. Now every BLOCK point on a grid line gets index k+1, in
+    #     SWOEXC and SWCOLBLK alike, so each row is output by the process that
+    #     computes it.
+    name = "swanout1.ftn"
+    lines = load(name)
+    lo = find(lines, r"^      SUBROUTINE SWOEXC ", name)[0]
+    i = find(lines, r"^            IF \( \.NOT\.EQREAL\(XC\(IP\),RVAL1\) \.OR\. EQREAL\(XC\(IP\),0\.\) \.OR\.$", name, lo)[0]
+    lines[i:i] = ["!           swan-force-strip-rows (block_point_owner): a BLOCK point on\n",
+                  "!           grid line k (0-based) is index k+1, as SWCOLBLK takes it\n"]
+    replace_lines(lines, r"^     &           RTYPE\.EQ\.'BLKV' \) IX = IX \+ 1$",
+                  ["     &           RTYPE(1:3).EQ.'BLK' ) IX = IX + 1\n"], name)
+    replace_lines(lines, r"^     &           RTYPE\.EQ\.'BLKV' \) IY = IY \+ 1$",
+                  ["     &           RTYPE(1:3).EQ.'BLK' ) IY = IY + 1\n"], name)
+    check_columns(lines, name)
+    files[name] = lines
+
+    name = "swanparll.ftn"
+    lines = load(name)
+    lo = find(lines, r"^      SUBROUTINE SWCOLBLK ", name)[0]
+    hi = find(lines, r"^!JAC      SUBROUTINE SWBLKCOL ", name)[0]
+    n = 0
+    k = lo
+    while True:
+        hits = [j for j in range(k, hi) if re.match(r"^ +IF \( \.NOT\.EQREAL\(XC\(IP\),RVAL1\) \.OR\.$", lines[j])]
+        if not hits:
+            break
+        j = hits[0]
+        ind = lines[j][:len(lines[j]) - len(lines[j].lstrip())]
+        assert re.match(r"^     & +EQREAL\(XC\(IP\),0\.   \) \) IXK = IXK \+ 1$", lines[j + 1])
+        assert re.match(r"^ +IF \( \.NOT\.EQREAL\(YC\(IP\),RVAL2\) \.OR\.$", lines[j + 2])
+        assert re.match(r"^     & +EQREAL\(YC\(IP\),0\.   \) \) IYK = IYK \+ 1$", lines[j + 3])
+        lines[j:j + 4] = ["!" + ind[1:] + "swan-force-strip-rows (block_point_owner): a point on\n",
+                          "!" + ind[1:] + "grid line k (0-based) is index k+1, as in SWOEXC\n",
+                          ind + "IXK = IXK + 1\n",
+                          ind + "IYK = IYK + 1\n"]
+        n += 1
+        k = j + 4
+    if n != 2:
+        sys.exit(f"{name}: expected 2 index blocks in SWCOLBLK, changed {n}")
+    check_columns(lines, name)
+    files[name] = lines
+
+
 def change_veg3_young_modulus():
     # veg3_young_modulus: swanpre1.ftn (VEGEtation command): iveg 3 selects COAWST's SVEG_COAWST,
     #    which reads Young's modulus VEGYML(1), but only the VEGCtation command
@@ -1572,6 +1628,7 @@ GROUPS = [
     ("1-fixes/swan-nc-crash.patch", ["nc_filename_length", "stnames_size"]),
     ("1-fixes/swan-stop-on-input-errors.patch", ["stop_on_input_errors"]),
     ("1-fixes/swan-output-fixes.patch", ["table_nc_coordinates", "compgrid_nc_coordinates", "output_obstacle_flags"]),
+    ("1-fixes/swan-force-strip-rows.patch", ["block_point_owner"]),
     ("1-fixes/swan-vegetation-fixes.patch", ["veg3_young_modulus", "veg3_flexible_plants", "plant_input_grids", "veg3_emergent_cd", "dicd_output"]),
     ("1-fixes/swan-periodic-fixes.patch", ["periodic_compgrid_frame", "periodic_y_strips", "periodic_coupled_stokes"]),
     ("1-fixes/swan-halo-hang.patch", ["halo_exchange_nonblocking"]),

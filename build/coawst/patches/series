@@ -20,6 +20,7 @@
 1-fixes/swan-nc-crash.patch
 1-fixes/swan-stop-on-input-errors.patch
 1-fixes/swan-output-fixes.patch
+1-fixes/swan-force-strip-rows.patch
 1-fixes/swan-vegetation-fixes.patch
 1-fixes/swan-periodic-fixes.patch
 1-fixes/swan-halo-hang.patch

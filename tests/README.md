@@ -34,6 +34,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
 | `fixes/swan-stop-on-input-errors/run.sh OUTDIR` | swan-stop-on-input-errors | rejected SWAN request: carries on before, clean stop after | 15 min |
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |
+| `fixes/swan-force-strip-rows/run.sh OUTDIR` | swan-force-strip-rows | Inlet_test FORCE on 1, 2, 3 SWAN processes: strip-boundary columns missing before, identical after; other output and ROMS bit-identical | 25 min |
 | `fixes/swan-vegetation-fixes/run.sh SOURCE OUTDIR` | swan-vegetation-fixes | source check; Veg_test with VEGETATION 3, submerged and emergent plants | 25 min |
 | `fixes/swan-periodic-fixes/run.sh SOURCE OUTDIR` | swan-periodic-fixes | source check; standalone periodic reef (cases/Swan_Periodic_Test), 1 and 4 SWAN processes | 25 min |
 | `fixes/swan-periodic-fixes/run_a15_coupled.sh SOURCE OUTDIR` | swan-periodic-fixes (`periodic_coupled_stokes`) | coupled periodic Reef_Ideal_A15 with and without the change: blow-up before, clean after | 40 min |

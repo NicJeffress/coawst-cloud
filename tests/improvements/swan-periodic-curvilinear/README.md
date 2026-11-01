@@ -50,9 +50,9 @@ correct periodic grid must have:
    - *same grid*: `uni-crv-mid` = `uni-reg-mid` (Hs, Dir, dissipation);
    - *shift*: `str-seam` vs `str-mid` rolled back, below 1e-4 m; `a15-seam`
      vs `a15-mid`, below 5e-4 m; on 1 and 4 processes;
-   - *processes*: Hs on 4 processes = 1, bit for bit; `FORCE` equal where
-     both have values (stock SWAN leaves out the rows at the strip
-     boundaries with several processes; see the patch document);
+   - *processes*: Hs on 4 processes = 1, bit for bit; `FORCE` too, with
+     nothing missing (stock SWAN left out the rows at the strip boundaries
+     until `1-fixes/swan-force-strip-rows`);
    - *periodic*: non-periodic differs from periodic by more than 0.1 m;
    - *flat reef*: Hs range along a row below 1e-4 m (uniform) and 5e-3 m
      (stretched: the effect of the varying spacing, not of the seam);
@@ -89,4 +89,6 @@ seam.
 2026-10-31, control VM: PASS. Curvilinear = regular bit for bit; seam
 through the pass 2.7e-5 m (stretched), 1.3e-4 m (A15 grid); 4 processes = 1;
 non-periodic differs by 1.2 m; output search across the seam within 6.7e-7 m;
-cases that do not need the patch unchanged.
+cases that do not need the patch unchanged. `FORCE` on 4 processes = 1, with
+nothing missing, checked again with the full series after
+`1-fixes/swan-force-strip-rows` was added (2026-10-31).

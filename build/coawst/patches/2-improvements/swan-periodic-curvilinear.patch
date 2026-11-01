@@ -104,7 +104,7 @@
          IF (PROPSC.EQ.1 .AND. MXC.LT.1)
 --- a/SWAN/src/swanout1.ftn
 +++ b/SWAN/src/swanout1.ftn
-@@ -6859,6 +6859,12 @@
+@@ -6861,6 +6861,12 @@
            DYI = RRDI * (SYUP*(YCGRID(JXUP,JYUP)-YCGRID(JXLO,JYUP)) +      30.72
       &                  SYLO*(YCGRID(JXUP,JYLO)-YCGRID(JXLO,JYLO)))       30.72
          ENDIF

@@ -185,11 +185,12 @@ independent of the periodic boundary.
 
 ## Limits found on the way (stock SWAN, not changed here)
 
-- **`FORCE` with several processes** leaves out the rows at the boundaries
+- **`FORCE` with several processes** left out the rows at the boundaries
   between the processes' strips (exception values there, e.g. rows 19, 38
-  and 57 of 76 with 4 processes). It happens on regular grids too, periodic
-  or not, with and without this patch; the values elsewhere are identical to
-  one process. Not fixed yet.
+  and 57 of 76 with 4 processes), on regular grids too, periodic or not.
+  Fixed since by `1-fixes/swan-force-strip-rows`: with it in the series,
+  `FORCE` on 4 processes equals 1 process here (`str-flat`, `uni-reg-flat`,
+  2026-10-31).
 - **Merging `FRAME` output from several processes** crashes on any
   curvilinear grid, so the output search test runs on one process. Not fixed.
 
