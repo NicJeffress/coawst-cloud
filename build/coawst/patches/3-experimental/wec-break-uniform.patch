@@ -1,0 +1,16 @@
+diff -ruN a/ROMS/Nonlinear/WEC/wec_vf.F b/ROMS/Nonlinear/WEC/wec_vf.F
+--- a/ROMS/Nonlinear/WEC/wec_vf.F
++++ b/ROMS/Nonlinear/WEC/wec_vf.F
+@@ -453,6 +453,12 @@
+ !         gamr(i,j)=MAX(MIN(0.707_r8*Dstp(i,j)/                         &
+           gamr(i,j)=MAX(MIN(2.0_r8*0.707_r8*Dstp(i,j)/                  &
+      &              (1.25_r8*Hwave(i,j)+eps),1.0_r8),0.0_r8)
++#ifdef WEC_BREAK_UNIFORM
++!  Test option (3-experimental/wec-break-uniform.patch): breaking
++!  force spread evenly over the water column (cosh(0) = 1) instead of
++!  concentrated near the surface.
++          gamr(i,j)=0.0_r8
++#endif
+           DO k=1,N(ng)
+             cff2=MAX(MIN((z_r(i,j,k)-z_w(i,j,0))*oDstp(i,j)*gamr(i,j),  &
+      &           1.0_r8),0.0_r8)
