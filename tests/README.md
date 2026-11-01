@@ -17,7 +17,7 @@ prints `IDENTICAL: <n> files` or the files that differ.
 
 ## Tests of the patches
 
-One folder per patch under `fixes/`, `improvements/` (later `experimental/`),
+One folder per patch under `fixes/`, `improvements/` and `experimental/`,
 with a `run.sh` that builds what it needs before and after the patch, runs it,
 compares, and prints PASS or FAIL. The results are written up in the patch's
 document (`build/coawst/patches/<tier>/<patch>.md`).
@@ -45,6 +45,11 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `improvements/swan-periodic-curvilinear/run.sh OUTDIR` | swan-periodic-curvilinear | standalone periodic SWAN on curvilinear grids: same as regular, seam through the pass, processes, output search, refused before | 20 min |
 | `improvements/roms-wec-stokes-fast/run.sh OUTDIR [MINUTES]` | roms-wec-stokes-fast | Reef_Ideal_A15 with PROFILE: fields at rounding level, WEC kernel CPU time | 10 min + runs |
 | `improvements/build-settings/run.sh OUTDIR` | build settings | Inlet_test SPECOUT on 1 vs 2 SWAN; A15 stock vs engine flags: differences, repeats, speed | 40 min + runs |
+| `experimental/options-off/run.sh OUTDIR` | all of 3-experimental | options off: same preprocessed Fortran with and without the patches (Inlet_test, A15_veg, A15 + WET_DRY, Circle_Island) | 1 h |
+| `experimental/roms-step2d-fb/run.sh OUTDIR [MINUTES]` | roms-step2d-fb | AB3-AM4 vs LF-AM3 vs a 4x-smaller-step reference on A15 and Circle_Island; PROFILE timing | 20 min + runs |
+| `experimental/roms-veg-implicit/run.sh OUTDIR [MINUTES]` | roms-veg-implicit | A15_veg patchy canopy: explicit blows up at DT 6 s, implicit vs explicit DT 3 s | 10 min + runs |
+| `experimental/roms-bstress-implicit/run.sh OUTDIR [MINUTES]` | roms-bstress-implicit | A15 and Circle_Island with and without the option (a record) | 20 min + runs |
+| `experimental/wec-break-uniform/run.sh OUTDIR [MINUTES]` | wec-break-uniform | A15 breaking acceleration profile, default vs uniform | 10 min + runs |
 | `improvements/swan-closed-ring/run.sh OUTDIR [MINUTES]` | swan-closed-ring | Circle_Island O-grid: refused before; coupler map in both directions with 1, 2, 3 SWAN; layouts; seam moved; waves from all sides; A15 unchanged | 20 min + runs |
 
 ## Test cases

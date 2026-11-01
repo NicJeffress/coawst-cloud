@@ -64,4 +64,16 @@ its function there (`change_<name>`).
 | [swan-closed-ring](2-improvements/swan-closed-ring.md) | SWAN refused periodic curvilinear grids that close on themselves (O-grids round an island: zero period), and COAWST's coupler laid out their rows one column off; now accepted, with the coupler mapping ROMS columns 0..Lm+1 to SWAN's ring, and SWAN's isolated-point test wrapping round the seam | new capability; other grids unchanged (A15 bit-identical) | Circle_Island (round island, 216 x 80 O-grid): coupler map exact, layouts identical, seam moved, waves from all sides |
 | [build settings](2-improvements/build-settings.md) (Dockerfile) | COAWST compiles SWAN at -O1 and ROMS with -ffast-math, and Inlet_test's SWAN_SINGLESPEC breaks spectral output with several SWAN processes; now SWAN -O3, both -march=x86-64-v3 -g, no -ffast-math, SWAN_SINGLESPEC off | speed: coupled A15 1.7x faster; results within 6e-5 relative; SPECOUT correct | Inlet_test SPECOUT 1 vs 2 SWAN; A15 on AMD and Intel |
 
-More improvements and the experimental options follow.
+### 3. Experimental
+
+Off unless their cpp option is defined: with the options off, every build
+preprocesses to the same Fortran with and without them (apart from line
+numbers passed to ROMS's timers, and a comment line;
+`tests/experimental/options-off`).
+
+| Patch | What it does (option) | Status | Test |
+|---|---|---|---|
+| [roms-step2d-fb](3-experimental/roms-step2d-fb.md) | ROMS's AB3-AM4 barotropic kernel (one call per fast step), unusable as shipped, completed with COAWST's wave and vegetation terms (`STEP2D_FB_AB3_AM4`) | as close as LF-AM3 to a reference with 4x smaller steps; 2-D kernel 2.4-2.6x less CPU | A15 and Circle_Island vs LF-AM3 and a small-step reference |
+| [roms-veg-implicit](3-experimental/roms-veg-implicit.md) | canopy drag taken backward Euler, no time-step limit (`VEG_DRAG_IMPLICIT`) | patchy canopy: explicit blows up at DT 6 s, implicit runs and stays within 1 cm/s of explicit at DT 3 s | A15_veg patchy and uniform canopies |
+| [roms-bstress-implicit](3-experimental/roms-bstress-implicit.md) | bottom stress taken backward Euler instead of capped (`BSTRESS_IMPLICIT`, `SSW_BBL`, not `SPLINES_VVISC`) | **not recommended**: runs on the idealized cases, failed on a realistic shallow reef | A15 and Circle_Island, as a record |
+| [wec-break-uniform](3-experimental/wec-break-uniform.md) | breaking force spread evenly over depth: a sensitivity switch (`WEC_BREAK_UNIFORM`) | profile even (top/bottom 0.998 against 188); currents change by up to 14 cm/s at the surface | A15 breaking diagnostics |
