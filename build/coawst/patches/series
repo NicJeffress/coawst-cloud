@@ -32,3 +32,6 @@
 2-improvements/swan-periodic-curvilinear.patch
 2-improvements/roms-wec-stokes-fast.patch
 2-improvements/swan-closed-ring.patch
+
+# 3. Experimental (off unless their cpp option is defined)
+3-experimental/roms-step2d-fb.patch
