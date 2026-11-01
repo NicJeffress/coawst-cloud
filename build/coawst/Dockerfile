@@ -144,14 +144,16 @@ RUN h=${CASE_DIR}/$(echo ${COAWST_APPLICATION} | tr A-Z a-z).h \
 
 # SWAN is built by CMake, which needs the MPI compiler wrapper (FC) and MCT's
 # location from the environment. build_coawst.sh carries on even if SWAN
-# fails, so check for its library explicitly.
+# fails, so check for its library explicitly (only when the case uses SWAN:
+# COAWST builds SWAN only then; ROMS-only examples such as Trench have none).
 ENV FC=mpif90 \
     MCT_INCDIR=/usr/local/mct/include \
     MCT_LIBDIR=/usr/local/mct/lib
 RUN ./build_coawst.sh -j ${NJOBS} > build.log 2>&1 \
     || (tail -100 build.log; exit 1); \
     tail -5 build.log \
-    && ls SWAN/build/lib/libswan*.a \
+    && h=${CASE_DIR}/$(echo ${COAWST_APPLICATION} | tr A-Z a-z).h \
+    && { ! grep -Eq "^ *# *define +SWAN_MODEL" $h || ls SWAN/build/lib/libswan*.a; } \
     && test -x coawstM
 
 # No separate SCRIP build: COAWST v3.9 compiles Lib/SCRIP_COAWST into coawstM
