@@ -1,0 +1,396 @@
+diff -ruN a/ROMS/Modules/mod_forces.F b/ROMS/Modules/mod_forces.F
+--- a/ROMS/Modules/mod_forces.F
++++ b/ROMS/Modules/mod_forces.F
+@@ -239,6 +239,14 @@
+ #endif
+           real(r8), pointer :: bustr(:,:)
+           real(r8), pointer :: bvstr(:,:)
++#ifdef BSTRESS_IMPLICIT
++          real(r8), pointer :: kbu(:,:)
++          real(r8), pointer :: kbv(:,:)
++          real(r8), pointer :: c2bu(:,:)
++          real(r8), pointer :: c2bv(:,:)
++          real(r8), pointer :: rbu(:,:)
++          real(r8), pointer :: rbv(:,:)
++#endif
+ #if defined BULK_FLUXES || defined ECOSIM || defined ATM_PRESS || \
+     defined SPECTRAL_LIGHT || defined AIR_OCEAN
+           real(r8), pointer :: Pair(:,:)
+@@ -676,6 +684,15 @@
+ 
+       allocate ( FORCES(ng) % bvstr(LBi:UBi,LBj:UBj) )
+       Dmem(ng)=Dmem(ng)+size2d
++#ifdef BSTRESS_IMPLICIT
++      allocate ( FORCES(ng) % kbu(LBi:UBi,LBj:UBj) )
++      allocate ( FORCES(ng) % kbv(LBi:UBi,LBj:UBj) )
++      allocate ( FORCES(ng) % c2bu(LBi:UBi,LBj:UBj) )
++      allocate ( FORCES(ng) % c2bv(LBi:UBi,LBj:UBj) )
++      allocate ( FORCES(ng) % rbu(LBi:UBi,LBj:UBj) )
++      allocate ( FORCES(ng) % rbv(LBi:UBi,LBj:UBj) )
++      Dmem(ng)=Dmem(ng)+6.0_r8*size2d
++#endif
+ 
+ #if defined BULK_FLUXES    || defined ECOSIM || defined ATM_PRESS || \
+     defined SPECTRAL_LIGHT || defined AIR_OCEAN
+@@ -1989,6 +2006,14 @@
+ #endif
+             FORCES(ng) % bustr(i,j) = IniVal
+             FORCES(ng) % bvstr(i,j) = IniVal
++#ifdef BSTRESS_IMPLICIT
++            FORCES(ng) % kbu(i,j) = IniVal
++            FORCES(ng) % kbv(i,j) = IniVal
++            FORCES(ng) % c2bu(i,j) = IniVal
++            FORCES(ng) % c2bv(i,j) = IniVal
++            FORCES(ng) % rbu(i,j) = IniVal
++            FORCES(ng) % rbv(i,j) = IniVal
++#endif
+ #if defined BULK_FLUXES    || defined ECOSIM || defined ATM_PRESS || \
+     defined SPECTRAL_LIGHT || defined AIR_OCEAN
+             FORCES(ng) % Pair(i,j) = IniVal
+diff -ruN a/ROMS/Nonlinear/BBL/ssw_bbl.h b/ROMS/Nonlinear/BBL/ssw_bbl.h
+--- a/ROMS/Nonlinear/BBL/ssw_bbl.h
++++ b/ROMS/Nonlinear/BBL/ssw_bbl.h
+@@ -271,6 +271,9 @@
+       real(r8) :: m_ustrc, m_ustrwm, m_ustrr, m_fwc, m_zoa, m_dwc
+       real(r8) :: zo, Dstp
+       real(r8) :: Kb, Kdelta, Ustr
++#ifdef BSTRESS_IMPLICIT
++      real(r8) :: bi_k, bi_hu, bi_h, bi_r
++#endif
+       real(r8) :: anglec, anglew
+       real(r8) :: cff, cff1, cff2, cff3, og, fac, fac1, fac2
+       real(r8) :: sg_ab, sg_abokb, sg_a1, sg_b1, sg_chi, sg_c1, d50
+@@ -864,7 +867,7 @@
+           anglec=0.5_r8*(Ur_sg(i,j)+Ur_sg(i-1,j))/                      &
+      &           (0.5_r8*(Umag(i-1,j)+Umag(i,j)))
+           bustr(i,j)=0.5_r8*(Tauc(i-1,j)+Tauc(i,j))*anglec
+-#ifdef LIMIT_BSTRESS
++#if defined LIMIT_BSTRESS && !defined BSTRESS_IMPLICIT
+           cff2=0.75_r8*0.5_r8*(z_w(i-1,j,1)+z_w(i,j,1)-                 &
+      &                         z_w(i-1,j,0)-z_w(i,j,0))
+           bustr(i,j)=SIGN(1.0_r8,bustr(i,j))*MIN(ABS(bustr(i,j)),       &
+@@ -877,7 +880,7 @@
+           anglec=0.5_r8*(Vr_sg(i,j)+Vr_sg(i,j-1))/                      &
+      &           (0.5_r8*(Umag(i,j-1)+Umag(i,j)))
+           bvstr(i,j)=0.5_r8*(Tauc(i,j-1)+Tauc(i,j))*anglec
+-#ifdef LIMIT_BSTRESS
++#if defined LIMIT_BSTRESS && !defined BSTRESS_IMPLICIT
+           cff2=0.75_r8*0.5_r8*(z_w(i,j-1,1)+z_w(i,j,1)-                 &
+      &                         z_w(i,j-1,0)-z_w(i,j,0))
+           bvstr(i,j)=SIGN(1.0_r8,bvstr(i,j))*MIN(ABS(bvstr(i,j)),       &
+@@ -885,6 +888,71 @@
+ #endif
+         END DO
+       END DO
++#ifdef BSTRESS_IMPLICIT
++!
++!-----------------------------------------------------------------------
++!  Implicit bottom stress (BSTRESS_IMPLICIT): drag coefficient of the
++!  bottom layer, kbu = Tauc/|U_1| (m/s; Tauc the current stress magnitude,
++!  |U_1| the bottom-layer speed, both at the face; a quadratic drag along
++!  the bottom-layer flow; not |bustr|/|u_1|, which is unbounded where u_1
++!  alone is near zero). Barotropic mode: implicit part c2bu*ubar with
++!  c2bu = kbu*u_1/ubar where u_1 and ubar (the depth mean now) agree in
++!  sign (at most 2 kbu), 0 where they oppose or ubar is tiny, plus the
++!  explicit remainder rbu = bustr - c2bu*ubar (rhs3d, frozen), so the
++!  barotropic mode feels exactly bustr at the start of each step. (A
++!  first version used kbu where they opposed: the wrong sign under the
++!  undertow at the crest's seaward edge, ~7 % of faces on A15.)
++!-----------------------------------------------------------------------
++!
++      DO j=Jstr,Jend
++        DO i=IstrU,Iend
++          bi_r=0.25_r8*(v(i-1,j,1,nrhs)+v(i,j,1,nrhs)+                 &
++     &                  v(i-1,j+1,1,nrhs)+v(i,j+1,1,nrhs))
++          bi_k=0.5_r8*(Tauc(i-1,j)+Tauc(i,j))/                         &
++     &         MAX(SQRT(u(i,j,1,nrhs)**2+bi_r**2),1.0E-4_r8)
++          bi_hu=0.0_r8
++          bi_h=0.0_r8
++          DO k=1,N(ng)
++            bi_r=0.5_r8*(z_w(i-1,j,k)+z_w(i,j,k)-                       &
++     &                   z_w(i-1,j,k-1)-z_w(i,j,k-1))
++            bi_hu=bi_hu+bi_r*u(i,j,k,nrhs)
++            bi_h=bi_h+bi_r
++          END DO
++          bi_hu=bi_hu/bi_h
++          FORCES(ng)%kbu(i,j)=bi_k
++          FORCES(ng)%c2bu(i,j)=0.0_r8
++          IF (ABS(bi_hu).gt.1.0E-4_r8) THEN
++            bi_r=bi_k*u(i,j,1,nrhs)/bi_hu
++            IF (bi_r.gt.0.0_r8) FORCES(ng)%c2bu(i,j)=MIN(bi_r,2.0_r8*bi_k)
++          END IF
++          FORCES(ng)%rbu(i,j)=bustr(i,j)-FORCES(ng)%c2bu(i,j)*bi_hu
++        END DO
++      END DO
++      DO j=JstrV,Jend
++        DO i=Istr,Iend
++          bi_r=0.25_r8*(u(i,j-1,1,nrhs)+u(i+1,j-1,1,nrhs)+             &
++     &                  u(i,j,1,nrhs)+u(i+1,j,1,nrhs))
++          bi_k=0.5_r8*(Tauc(i,j-1)+Tauc(i,j))/                         &
++     &         MAX(SQRT(v(i,j,1,nrhs)**2+bi_r**2),1.0E-4_r8)
++          bi_hu=0.0_r8
++          bi_h=0.0_r8
++          DO k=1,N(ng)
++            bi_r=0.5_r8*(z_w(i,j-1,k)+z_w(i,j,k)-                       &
++     &                   z_w(i,j-1,k-1)-z_w(i,j,k-1))
++            bi_hu=bi_hu+bi_r*v(i,j,k,nrhs)
++            bi_h=bi_h+bi_r
++          END DO
++          bi_hu=bi_hu/bi_h
++          FORCES(ng)%kbv(i,j)=bi_k
++          FORCES(ng)%c2bv(i,j)=0.0_r8
++          IF (ABS(bi_hu).gt.1.0E-4_r8) THEN
++            bi_r=bi_k*v(i,j,1,nrhs)/bi_hu
++            IF (bi_r.gt.0.0_r8) FORCES(ng)%c2bv(i,j)=MIN(bi_r,2.0_r8*bi_k)
++          END IF
++          FORCES(ng)%rbv(i,j)=bvstr(i,j)-FORCES(ng)%c2bv(i,j)*bi_hu
++        END DO
++      END DO
++#endif
+       DO j=Jstr,Jend
+         DO i=Istr,Iend
+           anglec=Ucur(i,j)/Umag(i,j)
+diff -ruN a/ROMS/Nonlinear/pre_step3d.F b/ROMS/Nonlinear/pre_step3d.F
+--- a/ROMS/Nonlinear/pre_step3d.F
++++ b/ROMS/Nonlinear/pre_step3d.F
+@@ -1062,7 +1062,11 @@
+           FC(i,0)=0.0_r8
+           FC(i,N(ng))=0.0_r8
+ # else
++#ifdef BSTRESS_IMPLICIT
++          FC(i,0)=0.0_r8                    ! implicit, in step3d_uv
++#else
+           FC(i,0)=dt(ng)*bustr(i,j)
++#endif
+           FC(i,N(ng))=dt(ng)*sustr(i,j)
+ !#  ifdef WET_DRY
+ !          FC(i,N(ng))=FC(i,N(ng))*umask_wet(i,j)
+@@ -1170,7 +1174,11 @@
+             FC(i,0)=0.0_r8
+             FC(i,N(ng))=0.0_r8
+ # else
++#ifdef BSTRESS_IMPLICIT
++            FC(i,0)=0.0_r8                    ! implicit, in step3d_uv
++#else
+             FC(i,0)=dt(ng)*bvstr(i,j)
++#endif
+             FC(i,N(ng))=dt(ng)*svstr(i,j)
+ !#  ifdef WET_DRY
+ !            FC(i,N(ng))=FC(i,N(ng))*vmask_wet(i,j)
+diff -ruN a/ROMS/Nonlinear/rhs3d.F b/ROMS/Nonlinear/rhs3d.F
+--- a/ROMS/Nonlinear/rhs3d.F
++++ b/ROMS/Nonlinear/rhs3d.F
+@@ -245,6 +245,9 @@
+ !***********************************************************************
+ !
+       USE mod_param
++#ifdef BSTRESS_IMPLICIT
++      USE mod_forces, ONLY : FORCES
++#endif
+       USE mod_clima
+       USE mod_scalars
+ !
+@@ -1869,7 +1872,11 @@
+         DO i=IstrU,Iend
+           cff=om_u(i,j)*on_u(i,j)
+           cff1= sustr(i,j)*cff
++#ifdef BSTRESS_IMPLICIT
++          cff2=-FORCES(ng)%rbu(i,j)*cff     ! remainder; rest implicit, step2d
++#else
+           cff2=-bustr(i,j)*cff
++#endif
+           rufrc(i,j)=rufrc(i,j)+cff1+cff2
+ #  ifdef WET_DRY
+           rufrc(i,j)=rufrc(i,j)*umask_wet(i,j)
+@@ -1982,7 +1989,11 @@
+           DO i=Istr,Iend
+             cff=om_v(i,j)*on_v(i,j)
+             cff1= svstr(i,j)*cff
++#ifdef BSTRESS_IMPLICIT
++            cff2=-FORCES(ng)%rbv(i,j)*cff     ! remainder; rest implicit, step2d
++#else
+             cff2=-bvstr(i,j)*cff
++#endif
+             rvfrc(i,j)=rvfrc(i,j)+cff1+cff2
+ #  ifdef WET_DRY
+             rvfrc(i,j)=rvfrc(i,j)*vmask_wet(i,j)
+diff -ruN a/ROMS/Nonlinear/step2d_FB.h b/ROMS/Nonlinear/step2d_FB.h
+--- a/ROMS/Nonlinear/step2d_FB.h
++++ b/ROMS/Nonlinear/step2d_FB.h
+@@ -201,6 +201,9 @@
+ !***********************************************************************
+ !
+       USE mod_param
++#ifdef BSTRESS_IMPLICIT
++      USE mod_forces, ONLY : FORCES
++#endif
+ #if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
+       USE mod_vegetation, ONLY : VEG
+ #endif
+@@ -1708,6 +1711,9 @@
+ #else
+           fac1=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++          fac1=1.0_r8/(1.0_r8/fac1+2.0_r8*dtfast(ng)*FORCES(ng)%c2bu(i,j))
++#endif
+           cff2=rubar(i,j)+rufrc(i,j)
+ #ifdef WET_DRY
+           cff5=ABS(ABS(umask_wet(i,j))-1.0_r8)
+@@ -1741,6 +1747,9 @@
+ #else
+           fac2=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++          fac2=1.0_r8/(1.0_r8/fac2+2.0_r8*dtfast(ng)*FORCES(ng)%c2bv(i,j))
++#endif
+           cff2=rvbar(i,j)+rvfrc(i,j)
+ #ifdef WET_DRY
+           cff5=ABS(ABS(vmask_wet(i,j))-1.0_r8)
+diff -ruN a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -277,6 +277,9 @@
+ !***********************************************************************
+ !
+       USE mod_param
++#ifdef BSTRESS_IMPLICIT
++      USE mod_forces, ONLY : FORCES
++#endif
+ #if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
+       USE mod_vegetation, ONLY : VEG
+ #endif
+@@ -2667,6 +2670,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+4.0_r8*cff1*FORCES(ng)%c2bu(i,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*cff1*rhs_ubar(i,j))*fac
+@@ -2701,6 +2707,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+4.0_r8*cff1*FORCES(ng)%c2bv(i,j))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*cff1*rhs_vbar(i,j))*fac
+@@ -2740,6 +2749,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+4.0_r8*cff1*FORCES(ng)%c2bu(i,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*cff1*rhs_ubar(i,j))*fac
+@@ -2768,6 +2780,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+4.0_r8*cff1*FORCES(ng)%c2bv(i,j))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*cff1*rhs_vbar(i,j))*fac
+@@ -2803,6 +2818,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+2.0_r8*dtfast(ng)*FORCES(ng)%c2bu(i,j))
++#endif
+             ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+      &                      cff*(cff1*rhs_ubar(i,j)+                    &
+@@ -2833,6 +2851,9 @@
+ #else
+             fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+ #endif
++#ifdef BSTRESS_IMPLICIT
++            fac=1.0_r8/(1.0_r8/fac+2.0_r8*dtfast(ng)*FORCES(ng)%c2bv(i,j))
++#endif
+             vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+      &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+      &                      cff*(cff1*rhs_vbar(i,j)+                    &
+diff -ruN a/ROMS/Nonlinear/step3d_uv.F b/ROMS/Nonlinear/step3d_uv.F
+--- a/ROMS/Nonlinear/step3d_uv.F
++++ b/ROMS/Nonlinear/step3d_uv.F
+@@ -28,6 +28,12 @@
+       USE mod_ocean
+       USE mod_scalars
+       USE mod_sources
++#if defined BSTRESS_IMPLICIT && !(defined SSW_BBL && defined SOLVE3D)
++# error BSTRESS_IMPLICIT needs SSW_BBL (roms-bstress-implicit.patch)
++#endif
++#if defined BSTRESS_IMPLICIT && defined SPLINES_VVISC
++# error BSTRESS_IMPLICIT needs SPLINES_VVISC off: the drag goes into the tridiagonal vertical viscosity solve
++#endif
+ #if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
+       USE mod_vegetation, ONLY : VEG
+ #endif
+@@ -481,6 +487,18 @@
+             BC(i,k)=Hzk(i,k)-FC(i,k)-FC(i,k-1)
+           END DO
+         END DO
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++        DO k=1,N(ng)
++          DO i=IstrU,Iend
++            BC(i,k)=BC(i,k)+dt(ng)*VEG(ng)%cu_veg(i,j,k)
++          END DO
++        END DO
++#endif
++#ifdef BSTRESS_IMPLICIT
++        DO i=IstrU,Iend
++          BC(i,1)=BC(i,1)+dt(ng)*FORCES(ng)%kbu(i,j)
++        END DO
++#endif
+         DO i=IstrU,Iend
+           cff=1.0_r8/BC(i,1)
+           CF(i,1)=cff*FC(i,1)
+@@ -608,7 +626,8 @@
+           END DO
+         END DO
+ # endif
+-#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT && \
++    defined SPLINES_VVISC
+ !
+ !  Canopy drag, backward Euler after the implicit vertical viscosity
+ !  (VEG_DRAG_IMPLICIT): u = u/(1 + dt cu_veg/Hz).
+@@ -960,6 +979,18 @@
+               BC(i,k)=Hzk(i,k)-FC(i,k)-FC(i,k-1)
+             END DO
+           END DO
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++          DO k=1,N(ng)
++            DO i=Istr,Iend
++              BC(i,k)=BC(i,k)+dt(ng)*VEG(ng)%cv_veg(i,j,k)
++            END DO
++          END DO
++#endif
++#ifdef BSTRESS_IMPLICIT
++          DO i=Istr,Iend
++            BC(i,1)=BC(i,1)+dt(ng)*FORCES(ng)%kbv(i,j)
++          END DO
++#endif
+           DO i=Istr,Iend
+             cff=1.0_r8/BC(i,1)
+             CF(i,1)=cff*FC(i,1)
+@@ -1087,7 +1118,8 @@
+             END DO
+           END DO
+ # endif
+-#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT && \
++    defined SPLINES_VVISC
+ !
+ !  Canopy drag, backward Euler after the implicit vertical viscosity
+ !  (VEG_DRAG_IMPLICIT): v = v/(1 + dt cv_veg/Hz).
