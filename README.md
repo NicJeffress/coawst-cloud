@@ -309,6 +309,9 @@ tests/
   same_source/                              checks on the patch series
   tools/                                    shared runners and comparison tools
 docs/figures/                               figures used by the patch documents
+docs/manuals/                               the COAWST, SWAN and ROMS reference manuals (README: versions, caveats)
+docs/options/                               every ROMS/SWAN/coupling/build option with the choice for the
+                                            idealized reef cases and its reasoning; SWAN command catalogue
 .github/workflows/                          the automated checks
 ```
 
