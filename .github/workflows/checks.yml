@@ -1,0 +1,44 @@
+# Checks on every push and pull request. The scripts do the work, so each check
+# runs the same way on any machine: see tests/README.md.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  series:
+    name: patch series applies to the pinned COAWST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: tests/ci/series_check.sh
+
+  romspath:
+    name: ROMSPath periodic channel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy netCDF4
+      - run: tests/romspath/periodic-channel/run.sh "$RUNNER_TEMP/channel"
+
+  inlet:
+    name: build COAWST and run Inlet_test for an hour
+    # longest check (about 10-20 minutes): pull requests, by hand and weekly
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy netCDF4
+      - run: tests/ci/inlet_smoke.sh "$RUNNER_TEMP/inlet"

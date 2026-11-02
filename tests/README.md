@@ -13,7 +13,26 @@ tests/same_source/compare_series.sh COAWST-<ref>.tar.gz \
     old/series old/ build/coawst/patches/series build/coawst/patches/
 ```
 
-prints `IDENTICAL: <n> files` or the files that differ.
+prints `IDENTICAL: <n> files`, or the files that differ. Each differing file is
+marked `comments` (the same once comments are removed) or `code`, and its
+differing code lines are shown ([`code_diff.py`](same_source/code_diff.py)). This
+also compares this series with another project's copy of the same patches.
+
+## Automated checks
+
+The scripts that GitHub Actions run (`.github/workflows/`); each prints PASS
+or FAIL and runs the same way on any machine.
+
+| Script | What it checks | When (Actions) | Time |
+|---|---|---|---|
+| `ci/series_check.sh [REF]` | every patch in `series` exists and has its document, every patch file is in `series`, and the series applies to COAWST at `REF` (default: the pinned commit; `main` = upstream's latest) | pinned: every push and pull request; `main`: weekly | 1 min + download |
+| `romspath/periodic-channel/run.sh OUTDIR` | ROMSPath: every commit of the fork and the image on a periodic channel with an exact answer ([README](romspath/periodic-channel/README.md)) | every push and pull request | 1 min |
+| `ci/inlet_smoke.sh OUTDIR [HOURS]` | the engine image of Inlet_test builds and runs coupled (ROMS 1x2 + 1 SWAN) for an hour without NaN | pull requests, by hand, weekly | 10 min |
+| `ci/romspath_upstream.sh` | upstream ROMSPath's new commits, and whether the fork's commits replay onto them | weekly | 1 min |
+
+The weekly checks against upstream's latest code do not test the engine
+itself, which builds pinned commits. They warn when a COAWST or ROMSPath update
+would need work, and say where.
 
 ## COAWST's examples
 

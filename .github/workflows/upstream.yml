@@ -1,0 +1,38 @@
+# Weekly: do our changes still apply to the latest upstream code?
+# A failure here does not mean the engine is broken (it builds pinned commits);
+# it means a COAWST or ROMSPath update would need work, and says where.
+name: upstream
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  coawst-main:
+    name: patch series on COAWST main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: tests/ci/series_check.sh main
+
+  romspath-master:
+    name: ROMSPath fork on upstream master
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: tests/ci/romspath_upstream.sh
+
+  inlet:
+    name: build COAWST and run Inlet_test for an hour (pinned)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy netCDF4
+      - run: tests/ci/inlet_smoke.sh "$RUNNER_TEMP/inlet"
