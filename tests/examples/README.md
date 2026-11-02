@@ -136,18 +136,37 @@ their flow is unstable:
 Large relative values in `results.md` for nearly-zero fields (v in 2-D
 slices, u in Marsh_test, the 1-D sediment columns) mean nothing.
 
-### Open finding: `fd_wbl` output depends on the build
+### Finding: van der A bedload writes unset memory when there is no sand
 
 In Inlet_test DiffGrid and Refined, the output `fd_wbl` (wave boundary layer
 friction factor from currents, van der A bedload with
-`BEDLOAD_VANDERA_MADSEN_UDELTA`) differs between builds whose code is the
-same (the last two partial builds; the patches between them are off). The
-differences sit in one column, at the edge between two tiles (e.g. 5.69 in
-one build, 0 in the other), and most other values are about 1e-17 or
-negative. All other fields of those runs are bit-identical, so the model
-state does not depend on it: the written diagnostic reads memory that is not
-set at those points. Not traced yet (a build that fills uninitialized memory
-with NaN would show where); a stock COAWST issue to report.
+`BEDLOAD_VANDERA_MADSEN_UDELTA`) differed between builds whose code is the
+same (the last two partial builds; the patches between them are off), in one
+column at the edge between two tiles (5.69 in one build, 0 in the other).
+Its values elsewhere, about 1e-17 or negative, are impossible for this
+friction factor (0, or at least 1e-14).
+
+**Cause (stock COAWST v3.9).** These two examples carry mud only
+(`NCS = 1`, `NNS = 0`). In `sed_bedload_vandera.F` the loop that computes
+the van der A quantities runs over sand classes only (`DO ised=NCS+1,NST`),
+so here it never runs, but the routine still copies its local work arrays
+(`fd_wbll`, `ursell_nol`, `RR_asymwavel`, `beta_asymwavel`, `ucrest_rl`,
+`utrough_rl`, `T_crestl`, `T_troughl`, and `ksd_wbll` with
+`BEDLOAD_VANDERA_DIRECT_UDELTA`) into the global fields. They hold whatever
+was in each process's memory; the change at the tile edge is two MPI
+processes with different leftovers.
+
+**Proof.** Stock DiffGrid, ROMS 2x2 + 2 SWAN, 2 h, built once as usual and
+once with `ROMS_FFLAGS_EXTRA="-finit-real=snan -fcheck=bounds"` (unset local
+memory filled with NaN, array bounds checked): no bounds error; `fd_wbl` is
+NaN at all 5333 water points and is the only NaN field in the history file.
+
+**Effect.** Output only: these fields are only written to files (and
+`ksd` with `BEDLOAD_VANDERA_DIRECT_UDELTA` is not read back), so the model
+state does not depend on them, as the bit-identical runs show. Any run with
+`BEDLOAD_VANDERA` and no sand class writes meaningless van der A
+diagnostics. A fix would set those arrays (e.g. to zero) before the loop. To
+report upstream.
 
 ### Cost
 
