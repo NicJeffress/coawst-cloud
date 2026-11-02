@@ -135,7 +135,7 @@ momentum.
 | `UV_C4ADVECTION` | 4th-order centred, no built-in damping; meant for eddy-resolving runs with `UV_VIS4`. | keep off |
 | `UV_U3ADV_SPLIT` | U3 split into C4 advection plus a velocity-dependent biharmonic viscosity rotated along geopotentials (Marchesiello et al. 2009), to stop the upstream scheme from mixing across isopycnals on steep sigma layers. Forces `UV_C4ADVECTION`, `UV_VIS4`, `VISC_3DCOEF` and removes `UV_VIS2`. | keep off: on the realistic case it blew up near the crest within minutes, with or without `MIX_GEO_UV` (2026-10-23). The spurious mixing it cures is a deep-slope problem; our dynamics are on the reef flat |
 | `UV_SADVECTION` | parabolic-spline vertical advection. The source warns: only idealized, high vertical resolution. | keep off (10 levels) |
-| `OMEGA_IMPLICIT` | adaptive implicit vertical advection: relaxes the vertical Courant limit where it binds. | keep off: on A15 at N^2 = 1e-3 it hid the instability and produced a wrong solution (5 m/s, 15 C errors at the boundary) instead of crashing (`case_design.md`, constant stratification). A crash is the better outcome |
+| `OMEGA_IMPLICIT` | adaptive implicit vertical advection: relaxes the vertical Courant limit where it binds. | keep off: on A15 at N^2 = 1e-3 it hid the instability and produced a wrong solution (5 m/s, 15 C errors at the boundary) instead of crashing (`case_design.md`, constant stratification), and on the realistic case it held the vertical Courant number to 10-20 without stopping the runaway. Why, from the code: the paragraph after the viscosity tables below |
 
 **Horizontal viscosity.**
 
@@ -195,6 +195,52 @@ is ROMS's spline option and is marked "idealized, high resolution only"),
 and the isoneutral rotation `ADV_ISONEUTRAL` UCLA offers for deep
 stratified runs (Rutgers' `UV_U3ADV_SPLIT` plays that role and blew up
 here).
+
+**Why `OMEGA_IMPLICIT` did not help, from the code.** The option
+(`omega.F`, Shchepetkin's adaptive scheme) splits the sigma-coordinate
+vertical velocity at every interface into an explicit part and an
+implicit remainder `Wi`. The budget for the explicit part is a total
+Courant number of `amax` = 0.75: `cw_max = 0.75 dz - (horizontal inflow
+Courant number)`, where the horizontal part is the sum of the inflow
+fluxes into the cell times dt pm pn (`omega.F` lines 211-215, 259-264,
+355-370). Whatever vertical displacement exceeds that budget goes into
+`Wi`, which the tracer and momentum correctors apply as a first-order
+upwind implicit term inside the tridiagonal solve (`step3d_t.F` lines
+1619-1660, `step3d_uv.F` lines 522-560; MPDATA receives `Wi` as an extra
+flux in `mpdata_adiff.F`). Three consequences:
+
+1. It only ever removes the vertical-advection stability limit. The
+   horizontal advection stays explicit (U3 with the LF-AM3 predictor and
+   corrector), with its own limit near a Courant number of 1 in one
+   direction and less in two. Every runaway on record had the cross-shore
+   Courant number at 0.7-1.0 or above (the realistic case's crest jet;
+   the A15 pass jet under a 2 m sea switched on at t = 0, notebook
+   2026-11-02), so the vertical Courant numbers of 5-186 were the symptom
+   of a horizontal runaway, not its cause. Once the horizontal inflow
+   alone exceeds 0.75, `cw_max` is negative and the whole vertical
+   advection becomes implicit upwind, which damps the vertical structure
+   but leaves the horizontal growth untouched.
+2. It cannot help an internal-wave limit at all. The A15 failures at N^2
+   >= 3e-4 start at the deep boundary columns where c1 dt / dx (c1 = N H /
+   pi, about 4 m/s at 1e-3) exceeds 0.5-1: a horizontal, pressure-gradient
+   driven instability of the baroclinic step. The implicit upwind vertical
+   term absorbs the vertical motion the instability produces, so the run
+   survives with an overturned, wrong stratification instead of stopping.
+3. The split is not applied everywhere. The predictor step
+   (`pre_step3d.F`) and the turbulence equations (`gls_corstep.F`) advect
+   with `OCEAN%W`, which after the split holds only the explicit part:
+   wherever the option is active the predictor and the TKE and length-scale
+   fields miss the implicit share of the vertical transport, exactly on the
+   crest where it matters, and the implicit share itself is first-order
+   upwind. That is an accuracy loss where the scheme is active, with no
+   gain where it is not.
+
+Where it would help: thin layers with a large but physical vertical
+Courant number and a small horizontal one, for example strong vertical
+motion over a steep slope resolved by many levels. That is not our regime.
+The diagnostic that settles it on A15 is in the campaign brief (phase 2):
+the pass-jet runaway with `OMEGA_IMPLICIT` on, watching the horizontal
+Courant number at the failing point.
 
 ### 1.3 Pressure gradient
 
@@ -658,6 +704,31 @@ D, h, n (`VEG_SWAN_COUPLING` guarantees it); `plant_thickness = (pi/4) D`.
 | `OFF BNDCHK`, `SET [hsrerr]` | silence the boundary Hs mismatch warnings | **use `OFF BNDCHK`** in nonstationary coupled runs if the warning count ever approaches `MAXMES` (200): the warnings are harmless and the stop is not |
 | `OFF WINDGROWTH`, `OFF WCAP` | - | off (nothing to switch off without wind) |
 
+### 3.8 Infragravity motions: what the model lacks, and the cheapest way in
+
+Neither model carries infragravity (IG) motions: SWAN is phase averaged
+with a lowest frequency of 0.04 Hz, and ROMS receives only the mean wave
+forcing, so wave-group-forced long waves (bound long waves released at the
+breakpoint, breakpoint forcing on the forereef, resonant reef-flat
+oscillations) are absent. On reef flats these are a known part of the
+set-up variability, the cross-reef transport and the run-up; the question
+is whether they matter for the encyclopedia's metrics (tidal-cycle means
+of set-up, transport and residence time) or only for extremes. Routes, in
+order of effort:
+
+| Route | What it is | Effort and limits |
+|---|---|---|
+| **InWave** (`INWAVE_MODEL`, COAWST's own IG model, v2.0 in this source) | a wave-group-resolving action balance for the short-wave envelope, stepped with ROMS, with `WEC_VF` forcing that varies at the group time scale, so ROMS generates the IG waves itself; forced at the boundary by a SWAN 2-D spectrum file (`INWAVE_SWAN_COUPLING`), with breaking by `WDISS_GAMMA` or `WDISS_ROELVINK`, friction `WDISS_FRIC`, Doppler shift `DOPPLER`; v3.9 added curvilinear metrics; examples `Inwave_shoreface`, `Inlet_test/InWave`, `Delilah`, `DuckNC` | the only built-in route, so "not too much work" in principle: a new case folder, `ND` directional bins in `ocean.in` (11 are already declared), a boundary spectrum from a standalone SWAN run. It replaces SWAN in the coupling (COAWST runs ROMS + InWave, not ROMS + SWAN + InWave), so SWAN's refraction, triads, vegetation dissipation and current feedback are lost or approximated; periodic boundaries, the closed O-grid, the restart fixes and the canopy have never been run with it; cost is roughly `ND` extra 3-D advected fields every ROMS step. The test is one A15 member against the SWAN-coupled baseline: does the tidal-mean set-up and transport change, and by how much |
+| SWAN `SURFBEAT` (Reniers and Zijlema 2022) | SWAN's IG module | stationary only, two-`COMPUTE` workflow, regular grids: cannot run coupled. Useful offline, as a standalone stationary A15 run, to estimate the IG energy reaching the reef flat for a given sea state and decide whether the question is worth the InWave effort |
+| IG at the open boundary of ROMS | a free long wave imposed through `ANA_FSOBC`/`ANA_M2OBC` at the group period (25-250 s) | cheap but physically weak: on a reef most IG energy is generated at the breakpoint, not incident; it only tests the reef flat's resonant response |
+| phase-resolving models (SWASH, XBeach surfbeat, FUNWAVE) | the standard tools for reef IG | not coupled to ROMS; a separate study, not an option of this system |
+
+Recommendation: no run now. Note it as a known omission in the methods;
+when the encyclopedia's set-up and transport results are in, run the
+standalone `SURFBEAT` estimate on A15, and if IG energy on the reef flat
+is a significant fraction of the sea-swell energy, try InWave on A15
+(one member, one day) before deciding anything about Moorea.
+
 ## 4. SWAN numerics (`swan.in`)
 
 ### 4.1 Grids and spectral resolution
@@ -961,7 +1032,7 @@ Not worth testing (the reasoning is in the sections): `UV_U3ADV_SPLIT`
 test), `HSIMT` and `U3` tracers (mix more or overshoot), `LMD_MIXING`,
 `UV_SADVECTION`, `WEC_BREAK_UNIFORM` as anything but a sensitivity,
 `DISSIP_BREAK_DIR` with SWAN (unfilled arrays), `SETUP` and `DIFFRACTION`
-in SWAN, `FRICTION JONSWAP`/`COLLINS` with coupled roughness,
+in SWAN (and `SURFBEAT`, stationary only), `FRICTION JONSWAP`/`COLLINS` with coupled roughness,
 `BSTRESS_IMPLICIT` on a grid with a crest under 0.4 m or rx0 above 0.2,
 `WET_DRY` while nothing dries, 20 vertical levels without a new
 crest-smoothing rule.
