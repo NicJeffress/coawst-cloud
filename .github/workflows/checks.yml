@@ -8,7 +8,36 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A new push to a pull request cancels the checks still running on the old one.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: what the pull request changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      engine: ${{ steps.diff.outputs.engine }}
+    steps:
+      # The pull request's merge commit and its first parent, the base branch.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      # Inlet_test is only needed when the pull request changes what it
+      # builds or runs: the image (Dockerfile, build scripts, patches and
+      # series, not the patch documents), the run tools, or this workflow.
+      - id: diff
+        run: |
+          git diff --name-only HEAD^1 HEAD | tee changed.txt
+          if grep -vE '\.md$' changed.txt \
+              | grep -qE '^(build/coawst/|tests/tools/|tests/ci/inlet_smoke\.sh$|\.github/workflows/checks\.yml$)'
+          then echo engine=true >> "$GITHUB_OUTPUT"
+          else echo engine=false >> "$GITHUB_OUTPUT"
+          fi
+
   series:
     name: patch series applies to the pinned COAWST
     runs-on: ubuntu-24.04
@@ -31,8 +60,13 @@ jobs:
 
   inlet:
     name: build COAWST and run Inlet_test for an hour
-    # longest check (about 10-20 minutes): pull requests, by hand and weekly
-    if: github.event_name != 'push'
+    # longest check (about 13 minutes, nearly all of it compiling COAWST): by
+    # hand, and on pull requests that change the image or the run tools; a
+    # pull request that does not reports this check as skipped
+    needs: changes
+    if: >-
+      !cancelled() && github.event_name != 'push' &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.engine == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

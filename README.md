@@ -262,7 +262,7 @@ on any machine with Docker.
 |---|---|---|
 | every push and pull request | the series is complete (every patch listed, each with its document) and applies to the pinned COAWST | `tests/ci/series_check.sh` |
 | every push and pull request | ROMSPath: every fork commit and the image on the periodic channel | `tests/romspath/periodic-channel/run.sh` |
-| pull requests, by hand, weekly | build COAWST with all patches; run Inlet_test coupled for an hour; no NaN; output is compressed NetCDF-4 | `tests/ci/inlet_smoke.sh` |
+| pull requests that change the image (Dockerfile, build scripts, patches, series) or `tests/tools/`; by hand; weekly | build COAWST with all patches; run Inlet_test coupled for an hour; no NaN; output is compressed NetCDF-4 | `tests/ci/inlet_smoke.sh` |
 | weekly | the series on COAWST's latest `main`; the ROMSPath fork on upstream's latest master | `tests/ci/series_check.sh main`, `tests/ci/romspath_upstream.sh` |
 
 The weekly checks do not test the engine itself, which builds pinned commits.
