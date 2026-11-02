@@ -42,3 +42,6 @@ jobs:
           python-version: "3.12"
       - run: pip install numpy netCDF4
       - run: tests/ci/inlet_smoke.sh "$RUNNER_TEMP/inlet"
+        env:
+          # 3 MPI processes; runners may have only 2 vCPUs
+          MPIRUN_ARGS: --oversubscribe
