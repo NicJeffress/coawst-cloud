@@ -1,0 +1,26 @@
+# COAWST's bundled examples that use only ROMS and/or SWAN (pinned commit),
+# as run by the examples sweep (README.md). Tab-separated columns:
+#   name     run folder and image tag
+#   project  folder in the COAWST tree
+#   app      cpp application (header = lower-case app .h in the project)
+#   mode     coupled (input: the coupling file), roms (ocean file) or
+#            swan (SWAN input files, comma-separated, one per nested grid)
+#   input    as above
+#   layout   coupled: "TI TJ NWAV"; roms: "TI TJ"; swan: "NWAV"
+#   minutes  simulated minutes, or - for the length the input files give
+# name	project	app	mode	input	layout	minutes
+Inlet_test-Coupled	Projects/Inlet_test/Coupled	INLET_TEST	coupled	coupling_inlet_test.in	2 2 2	-
+Inlet_test-DiffGrid	Projects/Inlet_test/DiffGrid	INLET_TEST	coupled	coupling_inlet_test_diffgrid.in	2 2 2	-
+Inlet_test-Refined	Projects/Inlet_test/Refined	INLET_TEST	coupled	coupling_inlet_test_ref3.in	2 2 2	-
+Inlet_test-Swanonly	Projects/Inlet_test/Swanonly	INLET_TEST	swan	swan_inlet_test.in,swan_inlet_test_ref5.in	2	-
+Rip_current	Projects/Rip_current	RIP_CURRENT	coupled	coupling_rip_current.in	2 2 2	10
+Veg_test	Projects/Veg_test	VEG_TEST	coupled	coupling_veg_test.in	2 2 2	120
+Ducknc	Projects/Ducknc/ROMS_SWAN	DUCKNC	roms	ocean_ducknc.in	4 1	-
+Estuary_test2	Projects/Estuary_test2	ESTUARY_TEST2	roms	ocean_estuary_test2.in	2 2	1440
+Marsh_test	Projects/Marsh_test	MARSH_TEST	roms	ocean_marsh_test.in	2 2	1440
+Sed_bed_toy	Projects/Sed_bed_toy	SED_BED_TOY	roms	ocean_sed_bed_toy.in	1 1	-
+Sed_floc_toy	Projects/Sed_floc_toy	SED_FLOC_TOY	roms	ocean_sed_floc_toy.in	1 1	-
+Trench	Projects/Trench	TRENCH	roms	ocean_trench.in	2 1	-
+Veg_growth_test	Projects/Veg_growth_test	VEG_GROWTH_TEST	roms	ocean_veg_growth_test.in	2 2	360
+Wetdry-dam_break	Projects/Wetdry	WETDRY_DAM_BREAK	roms	ocean_wetdry_dam_break.in	2 1	-
+Wetdry-slope_chan	Projects/Wetdry	WETDRY_SLOPE_CHAN	roms	ocean_wetdry_slope_chan.in	1 1	-

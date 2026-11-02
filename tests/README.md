@@ -15,6 +15,12 @@ tests/same_source/compare_series.sh COAWST-<ref>.tar.gz \
 
 prints `IDENTICAL: <n> files` or the files that differ.
 
+## COAWST's examples
+
+| Test | What it checks | Time |
+|---|---|---|
+| `examples/run.sh OUTDIR [NAME ...]` | every COAWST example that uses only ROMS and/or SWAN (15), built as stock COAWST, with the patches and COAWST's flags, and as the engine builds it; runs all three and compares the outputs ([README](examples/README.md)) | 2 h of builds (4 vCPUs) + runs |
+
 ## Tests of the patches
 
 One folder per patch under `fixes/`, `improvements/` and `experimental/`,
