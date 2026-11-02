@@ -1,9 +1,9 @@
-# Build settings: compiler flags and SWAN_SINGLESPEC
+# Build settings: compiler flags, SWAN_SINGLESPEC, compressed output
 
 | | |
 |---|---|
 | **Type** | improvement (Dockerfile settings, not a source patch) |
-| **Changes results?** | speed: the coupled idealized reef runs 1.7x faster; results within 6e-5 (relative) of COAWST's flags after 1 h. Output: `SPECOUT` spectra correct with several SWAN processes |
+| **Changes results?** | speed: the coupled idealized reef runs 1.7x faster; results within 6e-5 (relative) of COAWST's flags after 1 h. Output: `SPECOUT` spectra correct with several SWAN processes; NetCDF output compressed (same values, files 2-4x smaller) |
 | **Default** | on (`BUILD_SETTINGS=engine`); `BUILD_SETTINGS=stock` keeps COAWST's choices |
 | **Files** | `build/coawst/Dockerfile` (edits `Compilers/Linux-gfortran.mk`, `SWAN/src/CMakeLists.txt` and the case header at build time) |
 | **Evidence** | Reef_Ideal_A15, 1 h: 267 s -> 152 s on AMD, 315 s -> 198 s on Intel, identical results on both; Inlet_test: `SPECOUT` on 2 SWAN processes truncated with `SWAN_SINGLESPEC`, equal to 1 process without |
@@ -23,6 +23,7 @@ switches on `SWAN_SINGLESPEC`. The engine builds differently:
 | ROMS `-ffast-math` | on | off | IEEE-standard arithmetic (see below) | no measurable speed or reproducibility difference |
 | `-g` | no | yes | line numbers in crash backtraces | none (the generated code is the same) |
 | `SWAN_SINGLESPEC` | defined in Inlet_test's header | undefined in every case header | it breaks spectral point output with several SWAN processes | `SPECOUT` files correct |
+| Output format | classic NetCDF (unless the case header asks otherwise) | compressed NetCDF-4: `OUT_NETCDF4` and `DEFLATE` added to every case header (since 2026-11-02) | ensembles write a lot of output; compression is lossless | same values; ROMS and SWAN files 2-4x smaller; about 1-2 % run time |
 
 ## Background: what the flags mean
 
@@ -44,6 +45,12 @@ switches on `SWAN_SINGLESPEC`. The engine builds differently:
   but results then depend on compiler choices, NaN checks may be optimized
   away, and tiny values become exactly zero. ROMS's own blow-up check is safe
   either way (it prints the energy to text and looks for "NaN").
+- **`OUT_NETCDF4`, `DEFLATE`**: ROMS cpp options. `OUT_NETCDF4` writes
+  NetCDF-4 (HDF5-based) files instead of classic NetCDF; `DEFLATE` compresses
+  each variable losslessly (zlib, with the byte shuffle). Readers that use the
+  NetCDF library (Python netCDF4 and xarray, MATLAB, ncview, NCO) read both
+  formats the same way. SWAN's `.nc` output follows the same two options with
+  [`swan-netcdf4-compression`](swan-netcdf4-compression.md).
 - **`SWAN_SINGLESPEC`**: a COAWST option meant to avoid one temporary file
   per SWAN process for spectral output. With it, SWAN skips the step that
   merges the processes' pieces at the end of the run, so with more than one
@@ -74,8 +81,23 @@ RUN if [ "${BUILD_SETTINGS}" = engine ]; then \
         ...
 ```
 
-`--build-arg BUILD_SETTINGS=stock` skips both (with `SERIES=none`: COAWST
-exactly as shipped). `ARCH_FLAGS` can be changed for other CPUs or checks.
+Then, also in the case stage, the output format: `OUTPUT_OPTIONS` (default
+`+OUT_NETCDF4 +DEFLATE` with `BUILD_SETTINGS=engine`, nothing with `stock`)
+is appended to the case header as `#define` lines, before `CPP_OPTIONS`, so
+`CPP_OPTIONS="-DEFLATE"` can still override it:
+
+```dockerfile
+ARG OUTPUT_OPTIONS=default
+RUN ... out="${OUTPUT_OPTIONS}" \
+    && if [ "$out" = default ]; then \
+           if [ "${BUILD_SETTINGS}" = engine ]; then out="+OUT_NETCDF4 +DEFLATE"; else out=""; fi; \
+       fi \
+    ...
+```
+
+`--build-arg BUILD_SETTINGS=stock` skips all three (with `SERIES=none`:
+COAWST exactly as shipped). `ARCH_FLAGS` can be changed for other CPUs or
+checks; `--build-arg OUTPUT_OPTIONS=""` gives classic NetCDF files.
 
 ## How the test works
 
@@ -154,3 +176,10 @@ Every build of the engine (`BUILD_SETTINGS=engine` is the default): coupled
 runs are faster, and results differ from a COAWST build with its own flags at
 the level of rounding. Cases that define `SWAN_SINGLESPEC` get it removed;
 put `--build-arg BUILD_SETTINGS=stock` to keep COAWST's choices.
+
+Since 2026-11-02, output is compressed NetCDF-4. Tools that read NetCDF
+through the NetCDF library see no difference. Very old tools that only read
+classic files, and anything that compares files byte by byte instead of by
+value, need `--build-arg OUTPUT_OPTIONS=""`. The tests and the examples sweep
+before that date were run with classic files; the values are the same either
+way.

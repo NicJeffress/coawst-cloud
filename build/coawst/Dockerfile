@@ -10,6 +10,9 @@
 #                                (with SERIES=none: COAWST exactly as shipped)
 #   ARCH_FLAGS="..."             CPU target and debug flags (default
 #                                "-march=x86-64-v3 -g")
+#   OUTPUT_OPTIONS="..."         output format cpp options (default with
+#                                BUILD_SETTINGS=engine: "+OUT_NETCDF4 +DEFLATE",
+#                                compressed NetCDF-4; "" = classic NetCDF)
 #   CPP_OPTIONS="+X -Y"          add #define X / #undef Y to the case header
 # Steps shared by every case come first, so a new case reuses the cached
 # COAWST download, MCT build and patches.
@@ -127,12 +130,32 @@ RUN if [ "${BUILD_SETTINGS}" = engine ]; then \
         && ! grep -q "^#define SWAN_SINGLESPEC" ${CASE_DIR}/*.h; \
     fi
 
+# Output format (build settings): BUILD_SETTINGS=engine writes compressed
+# NetCDF-4 by default, OUT_NETCDF4 (NetCDF-4/HDF5 files) and DEFLATE (lossless
+# compression), for ROMS and, with 2-improvements/swan-netcdf4-compression, for
+# SWAN's .nc files. Same values, files 2-4 times smaller, 1-2 % run time.
+# OUTPUT_OPTIONS="" gives classic NetCDF files; BUILD_SETTINGS=stock leaves the
+# case header's choice (COAWST's examples: classic).
+#
 # Options without a new case folder: CPP_OPTIONS appends "#define X" (+X) or
 # "#undef X" (-X) to the end of the case header (<application in lower
-# case>.h), so they override its choices, e.g. CPP_OPTIONS="-DJ_GRADPS +PJ_GRADPQ4".
+# case>.h), after OUTPUT_OPTIONS, so they override both, e.g.
+# CPP_OPTIONS="-DJ_GRADPS +PJ_GRADPQ4".
+ARG OUTPUT_OPTIONS=default
 ARG CPP_OPTIONS=""
 RUN h=${CASE_DIR}/$(echo ${COAWST_APPLICATION} | tr A-Z a-z).h \
     && test -f $h \
+    && out="${OUTPUT_OPTIONS}" \
+    && if [ "$out" = default ]; then \
+           if [ "${BUILD_SETTINGS}" = engine ]; then out="+OUT_NETCDF4 +DEFLATE"; else out=""; fi; \
+       fi \
+    && for o in $out; do \
+           case "$o" in \
+               +*) echo "#define ${o#+}  /* OUTPUT_OPTIONS build arg */" ;; \
+               -*) echo "#undef ${o#-}  /* OUTPUT_OPTIONS build arg */" ;; \
+               *) echo "OUTPUT_OPTIONS: $o must start with + or -" >&2; exit 1 ;; \
+           esac; \
+       done >> $h \
     && for o in ${CPP_OPTIONS}; do \
            case "$o" in \
                +*) echo "#define ${o#+}  /* CPP_OPTIONS build arg */" ;; \
@@ -140,7 +163,7 @@ RUN h=${CASE_DIR}/$(echo ${COAWST_APPLICATION} | tr A-Z a-z).h \
                *) echo "CPP_OPTIONS: $o must start with + or -" >&2; exit 1 ;; \
            esac; \
        done >> $h \
-    && echo "CPP_OPTIONS: ${CPP_OPTIONS:-none}"
+    && echo "OUTPUT_OPTIONS: ${out:-none}; CPP_OPTIONS: ${CPP_OPTIONS:-none}"
 
 # SWAN is built by CMake, which needs the MPI compiler wrapper (FC) and MCT's
 # location from the environment. build_coawst.sh carries on even if SWAN

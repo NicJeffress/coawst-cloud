@@ -4,7 +4,7 @@
 |---|---|
 | **Type** | improvement |
 | **Changes results?** | output only: with `OUT_NETCDF4` and `DEFLATE`, SWAN's `.nc` files become compressed NetCDF-4, with identical values; without the options nothing changes |
-| **Default** | off in COAWST; on when the build defines `OUT_NETCDF4` and `DEFLATE` (`CPP_OPTIONS="+OUT_NETCDF4 +DEFLATE"`), the same two options that compress ROMS's output |
+| **Default** | on in engine builds: the [build settings](build-settings.md) define `OUT_NETCDF4` and `DEFLATE`, the two options that compress ROMS's output (`--build-arg OUTPUT_OPTIONS=""` for classic files); off in COAWST |
 | **Files** | `SWAN/src/agioncmd.ftn90` (`netcdf4_compression`) |
 | **Evidence** | Inlet_test, 8 SWAN files (BLOCK, TABLE, SPECOUT): every value identical, files 2.0x smaller; idealized reef, 4.0x smaller (2026-10-29) |
 | **Test** | [`tests/improvements/swan-netcdf4-compression/run.sh`](../../../../tests/improvements/swan-netcdf4-compression/run.sh), see its [README](../../../../tests/improvements/swan-netcdf4-compression/README.md) |

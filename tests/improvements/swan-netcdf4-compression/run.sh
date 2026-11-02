@@ -8,7 +8,7 @@
 # Stock Inlet_test (Coupled), 1 h, ROMS 1x1 + 1 SWAN, three builds:
 #   before        without the patch, CPP_OPTIONS="+OUT_NETCDF4 +DEFLATE":
 #                 ROMS writes compressed NetCDF-4, SWAN classic files
-#   after-classic with the patch, no options: SWAN classic files
+#   after-classic with the patch, no options (OUTPUT_OPTIONS=""): SWAN classic files
 #   after         with the patch and the options: SWAN compressed NetCDF-4
 # SWAN output requested every 10 min, all as .nc: BLOCK fields on the
 # computational grid (HSIGN, DIR, TM01, VEL, DISSIP, QB), TABLE at 9 points
@@ -26,7 +26,8 @@ P=2-improvements/swan-netcdf4-compression.patch
 mkdir -p "$OUT"
 "$tools/build_pair.sh" $P coawst-test:nc4 -- --build-arg CPP_OPTIONS="+OUT_NETCDF4 +DEFLATE"
 "$tools/series_upto.sh" $P > "$OUT/series-after"
-"$build" --series "$OUT/series-after" --tag coawst-test:nc4-after-classic > "$OUT/build-after-classic.log" 2>&1
+"$build" --series "$OUT/series-after" --tag coawst-test:nc4-after-classic -- --build-arg OUTPUT_OPTIONS="" \
+    > "$OUT/build-after-classic.log" 2>&1
 echo coawst-test:nc4-after-classic
 
 T="OUTPUT 20000101.000000 10 MIN"
