@@ -1,0 +1,25 @@
+diff -ruN a/ROMS/Nonlinear/prsgrd40.h b/ROMS/Nonlinear/prsgrd40.h
+--- a/ROMS/Nonlinear/prsgrd40.h
++++ b/ROMS/Nonlinear/prsgrd40.h
+@@ -130,6 +130,10 @@
+       integer, intent(in) :: nrhs
+ 
+ #ifdef ASSUMED_SHAPE
++# ifdef WET_DRY
++      real(r8), intent(in) :: umask_wet(LBi:,LBj:)
++      real(r8), intent(in) :: vmask_wet(LBi:,LBj:)
++# endif
+       real(r8), intent(in) :: om_v(LBi:,LBj:)
+       real(r8), intent(in) :: on_u(LBi:,LBj:)
+       real(r8), intent(in) :: Hz(LBi:,LBj:,:)
+@@ -151,6 +155,10 @@
+       real(r8), intent(inout) :: ru(LBi:,LBj:,0:,:)
+       real(r8), intent(inout) :: rv(LBi:,LBj:,0:,:)
+ #else
++# ifdef WET_DRY
++      real(r8), intent(in) :: umask_wet(LBi:UBi,LBj:UBj)
++      real(r8), intent(in) :: vmask_wet(LBi:UBi,LBj:UBj)
++# endif
+       real(r8), intent(in) :: om_v(LBi:UBi,LBj:UBj)
+       real(r8), intent(in) :: on_u(LBi:UBi,LBj:UBj)
+       real(r8), intent(in) :: Hz(LBi:UBi,LBj:UBj,N(ng))
