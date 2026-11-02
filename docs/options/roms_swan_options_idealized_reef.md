@@ -48,7 +48,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Grid | rectilinear, stretched, `CURVGRID` off (dndx = dmde = 0); on for curvilinear grids | 1.1 |
 | Wetting and drying | off (nothing dries); `LIMIT_BSTRESS` or `BSTRESS_IMPLICIT` carries the stress limiter that `WET_DRY` used to bring when a case needs one | 1.1, 1.5 |
 | Momentum advection | default U3H/C4V (`UV_ADV` only) | 1.2 |
-| Horizontal viscosity | `UV_VIS2` + `VISC_GRID`, `VISC2` 0.001, `MIX_S_UV`; sponge via `visc_factor` only at an open boundary | 1.2 |
+| Horizontal viscosity | `UV_VIS2` compiled with `VISC2` 0 (the U3 scheme's own hyperdiffusion is the lateral viscosity), `MIX_S_UV`; sponge via `visc_factor` only at an open boundary | 1.2 |
 | Pressure gradient | `DJ_GRADPS` | 1.3 |
 | Equation of state | linear (`TCOEF` 3.2e-4 at 28 C) for single-stratification runs; `NONLIN_EOS` once river water and realistic T/S are used (**to test**: rest run first) | 1.4 |
 | Tracer advection | MPDATA for T, S and dyes | 1.4 |
@@ -141,7 +141,7 @@ momentum.
 
 | Option | What it does | Verdict |
 |---|---|---|
-| `UV_VIS2` + `VISC2` | harmonic (Laplacian) viscosity, coefficient `VISC2` in m2/s. | **use**, `VISC2` 0.001 m2/s |
+| `UV_VIS2` + `VISC2` | harmonic (Laplacian) viscosity, coefficient `VISC2` in m2/s. | compiled in, **`VISC2` 0** in the A15 cases (user, 2026-11-02; 0.001 before): the U3 scheme supplies the lateral viscosity (see the paragraph on UCLA ROMS below), and `UV_VIS2` stays defined so that a `visc_factor` sponge can still be switched on |
 | `VISC_GRID` | scales `VISC2` with cell size: `visc2_r = VISC2 * sqrt(dx dy) / max(sqrt(dx dy))` (`ini_hmixcoef.F` line 308; cubic scaling for `VISC4`), so the `.in` value applies at the largest cell. | **use**: the grid is stretched (20-80 m) |
 | `MIX_S_UV` / `MIX_GEO_UV` | mixing along sigma layers or along geopotentials. Geopotential rotation adds a time-step restriction (Arango, Living with ROMS section 9) and only matters where sigma layers are steep and the viscosity large. | `MIX_S_UV`: with `VISC2` this small, the operator is a 2dx filter, not physics |
 | `UV_VIS4` + `VISC4` | biharmonic. Only with centred advection. | keep off |
@@ -171,8 +171,9 @@ crest (U 0.5 m/s, dx 20 m) that is 330 m4/s, a 2dx damping time of about
 5 s; in a lagoon corner at 2 cm/s still about 2 min. The explicit
 Laplacian `VISC2` 0.001 m2/s damps 2dx in about 11 h at 20 m cells, four
 orders of magnitude weaker, and only overtakes the scheme's damping where
-\|U\| drops below about 1e-4 m/s. So the present setting is "let the scheme
-do it" in all but name. UCLA ROMS makes this explicit: `UPSTREAM_UV`
+\|U\| drops below about 1e-4 m/s. So the former setting of 0.001 was "let the scheme
+do it" in all but name, and since 2026-11-02 the A15 cases set `VISC2` to 0
+outright. UCLA ROMS makes this explicit: `UPSTREAM_UV`
 (momentum, `step3d_uv1.F`), `UPSTREAM_TS` (tracers, `step3d_t_ISO.F`),
 `SPLINE_UV` and `SPLINE_TS` (vertical) are hard-wired, `UV_VIS2` and
 `TS_DIF2` are compiled, and every example input (`Examples/*/*.in`, from
@@ -180,9 +181,10 @@ the tidal and river cases to the wave-forced surf-zone case) sets
 `VISC2 = 0`, `VISC4 = 0`, `TNU2 = 0` and `v_sponge = 1` m2/s: the
 only explicit viscosity and diffusivity is the sponge ramp that
 `set_nudgcof.F` adds over the 15 points next to an open boundary. For
-these reef cases the two settings are interchangeable: 0.001 with
-`VISC_GRID` keeps every result so far comparable and gives a floor in
-stagnant corners; 0 is the UCLA convention and changes nothing visible.
+these reef cases the two settings are interchangeable: every A15 result up
+to 2026-11-02 was run with 0.001 and `VISC_GRID`; 0 is the UCLA
+convention and changes nothing visible, and a `visc_factor` sponge can
+still be switched on with `LuvSponge` because `UV_VIS2` stays compiled.
 What would not be interchangeable is a `VISC2` large enough to matter
 (1 m2/s to reach a grid Reynolds number of 10): it would smear the crest
 jets. Where the recommendations and UCLA's defaults differ elsewhere:
@@ -903,7 +905,7 @@ LBC: `Per Clo Per Che` (zeta), `Per Clo Per Shc` (ubar, vbar),
 `Per Clo Per Gra` (u, v, T, S) in the base case and `RadNud` in `_strat`
 and `_therm`, `Per Clo Per Gra` (TKE), and `Per Clo Per Gra` (change from
 `Gra Clo Gra Gra`) for the Stokes and wave-action variables; `VISC2`
-0.001, `TNU2` 0; `AKV_BAK` 5e-5, `AKT_BAK` 5e-6; GLS k-epsilon constants
+0 (user, 2026-11-02; 0.001 in every run before that date), `TNU2` 0; `AKV_BAK` 5e-5, `AKT_BAK` 5e-6; GLS k-epsilon constants
 as now (`GLS_Kmin` 7.6e-6); `Zob` 0.01 (inert with `SSW_CALC_ZNOT`:
 the roughness is `grain_diameter` 0.12 m in the initial file), `Zos`
 0.5 (inert unless `ZOS_HSIG` or `CHARNOK`; with `ZOS_HSIG` set

@@ -320,7 +320,7 @@ ad_VolCons(north) ==  F                            ! northern boundary
 ! Harmonic/biharmonic, horizontal viscosity coefficient for nonlinear model
 ! and adjoint-based algorithms: [Ngrids].
 
-       VISC2 == 0.001d0                         ! m2/s
+       VISC2 == 0.0d0                           ! m2/s (0 since 2026-11-02: the U3 advection scheme supplies the lateral viscosity; UV_VIS2 stays compiled for the sponge option)
        VISC4 == 0.0d0                           ! m4/s
 
     ad_VISC2 == 0.0d0                           ! m2/s
