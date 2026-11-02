@@ -195,7 +195,7 @@ before and after, and its limits.
 |---|---|---|---|
 | [roms-step2d-fb](build/coawst/patches/3-experimental/roms-step2d-fb.md) | `STEP2D_FB_AB3_AM4` | ROMS's AB3-AM4 barotropic kernel, completed with COAWST's wave and vegetation terms | as accurate as the default LF-AM3 against a 4x-smaller-step reference; 2-D kernel 2.4-2.6x less CPU |
 | [roms-veg-implicit](build/coawst/patches/3-experimental/roms-veg-implicit.md) | `VEG_DRAG_IMPLICIT` | canopy drag taken implicitly: no time-step limit for dense or patchy canopies | stable where explicit drag blows up; within 1 cm/s of explicit at a safe step |
-| [roms-bstress-implicit](build/coawst/patches/3-experimental/roms-bstress-implicit.md) | `BSTRESS_IMPLICIT` | bottom stress taken implicitly instead of capped | **not recommended**: failed on a realistic shallow reef; kept as a record |
+| [roms-bstress-implicit](build/coawst/patches/3-experimental/roms-bstress-implicit.md) | `BSTRESS_IMPLICIT` | bottom stress taken implicitly instead of capped | the full stress where `LIMIT_BSTRESS` would bind (thin bottom layers under fast flow); matches the uncapped explicit stress to 1 % on thin-crest A15 variants |
 | [wec-break-uniform](build/coawst/patches/3-experimental/wec-break-uniform.md) | `WEC_BREAK_UNIFORM` | breaking force spread evenly over depth | a sensitivity switch |
 
 Switch one on with `-- --build-arg CPP_OPTIONS="+VEG_DRAG_IMPLICIT"`.

@@ -76,6 +76,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `experimental/roms-step2d-fb/run.sh OUTDIR [MINUTES]` | roms-step2d-fb | AB3-AM4 vs LF-AM3 vs a 4x-smaller-step reference on A15 and Circle_Island; PROFILE timing | 20 min + runs |
 | `experimental/roms-veg-implicit/run.sh OUTDIR [MINUTES]` | roms-veg-implicit | A15_veg patchy canopy: explicit blows up at DT 6 s, implicit vs explicit DT 3 s | 10 min + runs |
 | `experimental/roms-bstress-implicit/run.sh OUTDIR [MINUTES]` | roms-bstress-implicit | A15 and Circle_Island with and without the option (a record) | 20 min + runs |
+| `experimental/roms-bstress-implicit/thin_crest.sh OUTDIR [MINUTES] [GRIDS]` | roms-bstress-implicit | thin-crest A15 variants: capped, uncapped and implicit stress compared | 15 min + 3 runs per grid |
 | `experimental/wec-break-uniform/run.sh OUTDIR [MINUTES]` | wec-break-uniform | A15 breaking acceleration profile, default vs uniform | 10 min + runs |
 | `improvements/swan-closed-ring/run.sh OUTDIR [MINUTES]` | swan-closed-ring | Circle_Island O-grid: refused before; coupler map in both directions with 1, 2, 3 SWAN; layouts; seam moved; waves from all sides; A15 unchanged | 20 min + runs |
 
