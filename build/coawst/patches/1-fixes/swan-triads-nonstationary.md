@@ -87,11 +87,26 @@ output every 10 min), the whole series without and with this patch:
 | *unchanged*: after without `TRIAD` vs before with it | **37 output files bit-identical** (every SWAN BLOCK file and the ROMS history, averages and diagnostics) |
 | wall time | before 302 s, after 294 s, after without `TRIAD` 317 s (machine noise; the triad term is cheap) |
 
-Over a whole day (24 h, same case, a dense canopy everywhere, 10 + 6
-processes), switching triads on through a second SWAN iteration (the only
-way before this patch) cut the breaking dissipation across the reef by 73 %,
-the lagoon set-up by 41 % and the transport over the crest by 51 %. Runs with
-the patch and one iteration per step are the next measurement.
+Over a whole day (24 h, the same case with a dense canopy everywhere, 10 + 6
+processes, DT 6 s), with the patch and implicit canopy drag:
+
+| | lagoon set-up | transport over the crest | Hs on the crest | breaking dissipation across the reef |
+|---|---|---|---|---|
+| with `TRIAD` (patched) | 3.90 mm | 203 m3/s | 0.156 m | 729 W/m |
+| without `TRIAD` | 0.70 mm (-82 %) | 62 m3/s (-69 %) | 0.084 m (-46 %) | 86 W/m (-88 %) |
+| 2 / 5 SWAN iterations per step | -0.2 % / -0.2 % | 0.0 % / 0.0 % | 0.0 % / 0.0 % | 0.0 % / 0.0 % |
+
+On the same reef without the canopy, triads raise the set-up 46 % and the
+crest transport 24 %; 2 iterations change the result by at most 2 %. So with
+the patch one iteration per step is converged. Before the patch, two
+iterations (triads in the second only) gave a third answer (breaking
+dissipation -73 % against one iteration): an inconsistent mix of the two
+operators.
+
+A side effect worth knowing: with triads acting, the near-bed flow over the
+fore reef of the canopy case reached 0.5 m/s and ROMS's explicit canopy drag
+went unstable at DT 6 s (`2 alpha |U| DT` about 6); the implicit canopy drag
+(3-experimental/roms-veg-implicit, `VEG_DRAG_IMPLICIT`) runs.
 
 ## Who is affected
 
