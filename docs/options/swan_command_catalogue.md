@@ -1,6 +1,6 @@
 # SWAN command catalogue (COAWST v3.9 bundled SWAN)
 
-> Compiled 2026-11-02 from the SWAN source bundled with COAWST at commit 26e6fb7 (parser `swanpre1.ftn`, defaults in `swanmain.ftn`), cross-checked against the 41.51 manuals in `docs/manuals/`. A companion to the project's options document (kept with the project's case records); the line numbers refer to that commit. Written with automated help and reviewed for the commands the reef cases use; for any other command, check the cited lines before relying on a default.
+> Compiled 2026-11-02 from the SWAN source bundled with COAWST at commit 26e6fb7 (parser `swanpre1.ftn`, defaults in `swanmain.ftn`), cross-checked against the 41.51 manuals (listed in `docs/manuals/`). A companion to the project's options document (kept with the project's case records); the line numbers refer to that commit. Written with automated help and reviewed for the commands the reef cases use; for any other command, check the cited lines before relying on a default.
 
 
 Ground truth for this document is the SWAN command parser and initialisation code bundled with COAWST v3.9:

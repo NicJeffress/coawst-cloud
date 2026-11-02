@@ -19,3 +19,8 @@ id_ed25519*
 
 # Local configuration (project, bucket, account names)
 launch/config.local.*
+
+# Third-party manuals: keep local copies in docs/manuals/, never commit them
+# (see docs/manuals/README.md and THIRD_PARTY.md)
+docs/manuals/*.pdf
+docs/manuals/*.docx

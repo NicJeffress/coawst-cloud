@@ -1078,9 +1078,9 @@ Primary (the code at the pinned commit):
   numerical-schemes notes, the case READMEs and the dated lab notebook
   (entries of 2026-10-20 to 2026-11-02), cited by date above.
 
-Manuals (`docs/manuals/`): COAWST User Manual v3.9 (September 2026); SWAN
+Manuals (listed in `docs/manuals/README.md`, not included): COAWST User Manual v3.9 (September 2026); SWAN
 user and technical manuals 41.51 (March 2026); "Living with ROMS"
-(Cherian, 2020). Their caveats are in `docs/manuals/README.md`.
+(Cherian, 2020). Their versions and caveats are in that README.
 
 Companion files in `docs/options/`:
 

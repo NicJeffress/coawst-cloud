@@ -7,4 +7,4 @@
 - `swan_command_catalogue.md`: every SWAN command as the parser bundled with
   COAWST v3.9 reads it (syntax, keyword alternatives, the defaults the code
   applies, source line references), with the places where the 41.51 manual
-  is out of date. Use it with the manuals in `docs/manuals/`.
+  is out of date. Use it with the manuals listed in `docs/manuals/`.
