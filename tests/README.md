@@ -37,6 +37,7 @@ document (`build/coawst/patches/<tier>/<patch>.md`).
 | `fixes/roms-wetdry-stokes/run.sh OUTDIR [MINUTES]` | roms-wetdry-stokes | Reef_Ideal_A15 with vs without WET_DRY: 0.24 m/s apart before, 6e-5 after; executables without WET_DRY identical | 15 min + runs |
 | `fixes/roms-restart-wec/run.sh OUTDIR [TOTAL RST]` | roms-restart-wec | 60 min straight vs 30 + 30 restarted, A15 with canopy, with a river and bare; 4 restart records in one file | 20 min + runs |
 | `fixes/roms-restart-step-count/run.sh OUTDIR` | roms-restart-step-count | Reef_Ideal_A15 with DSTART far from its start: restart wrong before, stops with a message after; normal case bit-identical | 10 min + runs |
+| `fixes/roms-vandera-no-sand/run.sh OUTDIR [MINUTES]` | roms-vandera-no-sand | Inlet_test DiffGrid (mud only) with unset memory as NaN: fd_wbl NaN before, zero after, rest bit-identical; Inlet_test Coupled (sand) bit-identical | 25 min |
 | `fixes/swan-nc-crash/run.sh OUTDIR` | swan-nc-crash | Inlet_test with SWAN bounds-checked: stops before, clean after | 15 min |
 | `fixes/swan-stop-on-input-errors/run.sh OUTDIR` | swan-stop-on-input-errors | rejected SWAN request: carries on before, clean stop after | 15 min |
 | `fixes/swan-output-fixes/run.sh OUTDIR` | swan-output-fixes | Inlet_test with points between grid points, NetCDF TABLE and BLOCK, 1 and 2 SWAN | 20 min |

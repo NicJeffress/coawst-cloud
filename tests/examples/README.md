@@ -165,8 +165,9 @@ NaN at all 5333 water points and is the only NaN field in the history file.
 `ksd` with `BEDLOAD_VANDERA_DIRECT_UDELTA` is not read back), so the model
 state does not depend on them, as the bit-identical runs show. Any run with
 `BEDLOAD_VANDERA` and no sand class writes meaningless van der A
-diagnostics. A fix would set those arrays (e.g. to zero) before the loop. To
-report upstream.
+diagnostics. Fixed by
+[`1-fixes/roms-vandera-no-sand`](../../build/coawst/patches/1-fixes/roms-vandera-no-sand.md)
+(the arrays start at zero), added after this sweep; to report upstream.
 
 ### Cost
 

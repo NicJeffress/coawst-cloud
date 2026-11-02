@@ -28,6 +28,9 @@ cp "/opt/coawst/$P/$OCN" ocean.in
 cp "/opt/coawst/$P/$WAV" swan.in
 sed -i -E "s#^( *WAV_name *= *).*#\1swan.in#; s#^( *OCN_name *= *).*#\1ocean.in#" coupling.in
 sed -i -E "s/^( *NnodesWAV *= *)[0-9]+/\1${NWAV}/; s/^( *NnodesOCN *= *)[0-9]+/\1${NOCN}/" coupling.in
+# The run writes the interpolation weights file (projects on different ROMS
+# and SWAN grids): here, since the project folder in the image is read-only.
+sed -i -E "s#^( *SCRIP_COAWST_NAME *= *).*#\1scrip_weights.nc#" coupling.in
 sed -i -E "s/^( *NtileI *== *)[0-9]+/\1${TI}/; s/^( *NtileJ *== *)[0-9]+/\1${TJ}/" ocean.in
 if [ -n "$MINUTES" ]; then
     dt=$(sed -nE 's/^ *DT *== *([0-9.]+)d?0?.*/\1/p' ocean.in | head -1)

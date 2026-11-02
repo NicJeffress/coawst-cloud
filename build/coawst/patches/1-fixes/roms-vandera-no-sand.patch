@@ -1,0 +1,25 @@
+diff -ruN a/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F b/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
+--- a/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
++++ b/ROMS/Nonlinear/Sediment/sed_bedload_vandera.F
+@@ -364,6 +364,21 @@
+       FE_r=0.0_r8
+       fd=0.0_r8
+ !
++!  The local arrays below are set in the loop over sand classes
++!  (ised=NCS+1,NST) and copied to output fields after it. Start them
++!  at zero, so that a case without sand (NNS=0) writes zeros, not
++!  unset memory.
++!
++      ursell_nol=0.0_r8
++      RR_asymwavel=0.0_r8
++      beta_asymwavel=0.0_r8
++      ksd_wbll=0.0_r8
++      fd_wbll=0.0_r8
++      ucrest_rl=0.0_r8
++      utrough_rl=0.0_r8
++      T_crestl=0.0_r8
++      T_troughl=0.0_r8
++!
+ !-----------------------------------------------------------------------
+ !  Compute bedload sediment transport.
+ !-----------------------------------------------------------------------
