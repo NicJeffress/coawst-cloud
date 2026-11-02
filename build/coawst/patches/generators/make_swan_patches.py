@@ -1614,6 +1614,28 @@ def change_netcdf4_compression():
     files[name] = lines
 
 
+def change_triads_nonstationary():
+    # triads_nonstationary: swancom1.ftn (SOURCE): the triad source term was
+    #     skipped in the first iteration of every time step whenever currents
+    #     are present (ICUR > 0), a guard meant for stationary runs, whose
+    #     first iteration starts from an empty spectrum. A coupled run always
+    #     has currents and nonstationary SWAN does one iteration per time step
+    #     by default (MXITNS 1), so TRIAD was never computed. A nonstationary
+    #     step starts from the previous step's spectrum: compute triads from
+    #     the first iteration there (NSTATC = 1).
+    name = "swancom1.ftn"
+    lines = load(name)                  # already changed by periodic_y_strips
+    replace_lines(lines, r"^        IF \( ICUR \.EQ\. 0 \.OR\. ITER \.GT\. 1 \) THEN\s*$", [
+        "!       Project patch: also in the first iteration of a nonstationary\n",
+        "!       time step, which starts from the previous step's spectrum\n",
+        "!       (otherwise TRIAD is never computed in coupled runs with one\n",
+        "!       iteration per step)\n",
+        "        IF ( ICUR .EQ. 0 .OR. ITER .GT. 1 .OR. NSTATC .EQ. 1 ) THEN\n",
+    ], name)
+    check_columns(lines, name)
+    files[name] = lines
+
+
 # ---------------------------------------------------------------------------
 # Driver: run the changes in the order of GROUPS and write one patch per group.
 load_original = load
@@ -1633,6 +1655,7 @@ GROUPS = [
     ("1-fixes/swan-periodic-fixes.patch", ["periodic_compgrid_frame", "periodic_y_strips", "periodic_coupled_stokes"]),
     ("1-fixes/swan-halo-hang.patch", ["halo_exchange_nonblocking"]),
     ("1-fixes/swan-exact-restart.patch", ["exact_restart"]),
+    ("1-fixes/swan-triads-nonstationary.patch", ["triads_nonstationary"]),
     ("2-improvements/swan-netcdf-output.patch", ["netcdf_names", "netcdf_records", "netcdf_float"]),
     ("2-improvements/swan-netcdf4-compression.patch", ["netcdf4_compression"]),
     ("2-improvements/swan-periodic-curvilinear.patch", ["periodic_curvilinear"]),

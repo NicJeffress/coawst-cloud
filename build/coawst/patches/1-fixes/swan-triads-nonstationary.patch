@@ -1,0 +1,15 @@
+--- a/SWAN/src/swancom1.ftn
++++ b/SWAN/src/swancom1.ftn
+@@ -8031,7 +8031,11 @@
+ !       *** geographical gridpoint a continuous spectrum    ***
+ !       *** is present, i.e., after first iteration         ***
+ !
+-        IF ( ICUR .EQ. 0 .OR. ITER .GT. 1 ) THEN
++!       Project patch: also in the first iteration of a nonstationary
++!       time step, which starts from the previous step's spectrum
++!       (otherwise TRIAD is never computed in coupled runs with one
++!       iteration per step)
++        IF ( ICUR .EQ. 0 .OR. ITER .GT. 1 .OR. NSTATC .EQ. 1 ) THEN
+ !
+            IF (ITRIAD.EQ.1.OR.ITRIAD.EQ.11) THEN
+ !             LTA
