@@ -8,13 +8,15 @@
 # build/coawst/patches/series does. Both series are applied to fresh copies of
 # SOURCE with build/coawst/apply_series.sh, and the two trees are compared file
 # by file. Exit 0 and "IDENTICAL" if every file matches, 1 with the list of
-# differing files otherwise.
+# differing files otherwise. Each differing file is marked "comments" (the
+# same once Fortran comments are removed) or "code" (code_diff.py, needs
+# python3), and the code lines that differ are shown.
 #
 # Use it whenever the series is reorganised (reordered, split, regenerated):
 # the reorganised series must give exactly the source of the old one, or the
 # difference must be the intended change.
 set -euo pipefail
-[ $# -eq 5 ] || { sed -n '2,15p' "$0"; exit 2; }
+[ $# -eq 5 ] || { sed -n '2,17p' "$0"; exit 2; }
 src=$1 sa=$2 pa=$3 sb=$4 pb=$5
 apply=$(cd "$(dirname "$0")/../../build/coawst" && pwd)/apply_series.sh
 work=$(mktemp -d "${TMPDIR:-/tmp}/compare_series.XXXXXX")
@@ -42,6 +44,20 @@ if diff -rq -x PATCHES_APPLIED "$work/a" "$work/b" > "$work/diff.txt"; then
     echo "IDENTICAL: $n files"
 else
     echo "DIFFERENT: $(wc -l < "$work/diff.txt") entries"
-    sed "s|$work/||g" "$work/diff.txt"
+    here=$(cd "$(dirname "$0")" && pwd)
+    ncode=0
+    while read -r line; do
+        case "$line" in
+            "Files $work/a/"*)
+                f=${line#Files $work/a/}; f=${f%% and *}
+                if python3 -I "$here/code_diff.py" "$work/a/$f" "$work/b/$f" > "$work/cd.txt"; then
+                    echo "   comments  $f"
+                else
+                    echo "   code      $f"; sed 1d "$work/cd.txt"; ncode=$((ncode + 1))
+                fi ;;
+            *) echo "   $line" | sed "s|$work/||g"; ncode=$((ncode + 1)) ;;
+        esac
+    done < "$work/diff.txt"
+    echo "files with code differences: $ncode"
     exit 1
 fi
