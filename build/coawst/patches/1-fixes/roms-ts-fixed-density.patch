@@ -1,0 +1,30 @@
+--- a/ROMS/Nonlinear/main3d.F
++++ b/ROMS/Nonlinear/main3d.F
+@@ -119,9 +119,7 @@
+       USE marsh_dynamics_mod,   ONLY : marsh_dynamics
+ # endif
+       USE post_initial_mod,     ONLY : post_initial
+-# ifndef TS_FIXED
+       USE rho_eos_mod,          ONLY : rho_eos
+-# endif
+       USE rhs3d_mod,            ONLY : rhs3d
+ # ifdef ICE_MODEL
+       USE seaice_mod,           ONLY : seaice
+@@ -378,9 +376,15 @@
+ # else
+                 CALL set_massflux (ng, tile, iNLM)
+ # endif
+-# ifndef TS_FIXED
++!
++!  coawst-cloud patch roms-ts-fixed-density: also with TS_FIXED. The
++!  tracers are then fixed, but the depth averages of the density that
++!  the barotropic pressure gradient uses (rhoA, rhoS), the density and
++!  the buoyancy frequency depend on the layer depths, which move with
++!  the free surface; computed only once at initialization they stayed
++!  those of the start time, which differs between a run and its restart.
++!
+                 CALL rho_eos (ng, tile, iNLM)
+-# endif
+ # ifdef TIDE_GENERATING_FORCES
+                 CALL equilibrium_tide (ng, tile, iNLM)
+ # endif
