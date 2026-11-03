@@ -21,6 +21,7 @@
 1-fixes/roms-prsgrd40-wetdry.patch
 1-fixes/roms-quicksave-uv.patch
 1-fixes/roms-roller-substeps.patch
+1-fixes/roms-restart-roller.patch
 1-fixes/swan-nc-crash.patch
 1-fixes/swan-stop-on-input-errors.patch
 1-fixes/swan-output-fixes.patch

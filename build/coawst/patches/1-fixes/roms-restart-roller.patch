@@ -1,0 +1,229 @@
+diff -ruN a/ROMS/Nonlinear/WEC/wec_roller.F b/ROMS/Nonlinear/WEC/wec_roller.F
+--- a/ROMS/Nonlinear/WEC/wec_roller.F
++++ b/ROMS/Nonlinear/WEC/wec_roller.F
+@@ -306,6 +306,16 @@
+       cfl=rbuffer(1)
+ #  endif
+       numits=MAX(1,CEILING(cfl/0.9_r8))
++#  ifdef PERFECT_RESTART
++!
++!  roms-restart-roller: the restart record is written after this routine
++!  has updated the roller in that step (output follows it in main3d), so
++!  rollA and Dissip_roller read from a perfect restart file are already
++!  the values of the first step. Take no roller step then; the exchanges
++!  below still fill the ghost points.
++!
++      IF (PerfectRST(ng).and.(iic(ng).eq.ntstart(ng))) numits=0
++#  endif
+ !
+       DO it=1,numits
+ !
+diff -ruN a/ROMS/Utility/def_rst.F b/ROMS/Utility/def_rst.F
+--- a/ROMS/Utility/def_rst.F
++++ b/ROMS/Utility/def_rst.F
+@@ -902,6 +902,45 @@
+         status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idRzet),    &
+      &                 NF_FRST, nvd4, r2dgrd, Aval, Vinfo, ncname)
+         IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++# if defined WEC_ROLLER && defined ROLLER_RENIERS
++!
++!  Define the wave roller (rollA): ROLLER_RENIERS carries it from step to
++!  step, so a restart needs it (project patch roms-restart-roller).
++!
++        Vinfo( 1)=Vname(1,idWrol)
++        Vinfo( 2)=Vname(2,idWrol)
++        Vinfo( 3)=Vname(3,idWrol)
++        Vinfo(14)=Vname(4,idWrol)
++        Vinfo(16)=Vname(1,idtime)
++#  if defined WRITE_WATER && defined MASKING
++        Vinfo(24)='_FillValue'
++        Aval(6)=spval
++#  endif
++        Vinfo(21)=Vname(6,idWrol)
++        Vinfo(22)='coordinates'
++        Aval(5)=REAL(Iinfo(1,idFsur,ng),r8)
++        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idWrol),    &
++     &                 NF_FRST, nvd3, sr2dgrd, Aval, Vinfo, ncname)
++        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++!
++!  and its dissipation (the first step after a restart reuses it).
++!
++        Vinfo( 1)=Vname(1,idWdis)
++        Vinfo( 2)=Vname(2,idWdis)
++        Vinfo( 3)=Vname(3,idWdis)
++        Vinfo(14)=Vname(4,idWdis)
++        Vinfo(16)=Vname(1,idtime)
++#  if defined WRITE_WATER && defined MASKING
++        Vinfo(24)='_FillValue'
++        Aval(6)=spval
++#  endif
++        Vinfo(21)=Vname(6,idWdis)
++        Vinfo(22)='coordinates'
++        Aval(5)=REAL(Iinfo(1,idFsur,ng),r8)
++        status=def_var(ng, model, RST(ng)%ncid, RST(ng)%Vid(idWdis),    &
++     &                 NF_FRST, nvd3, sr2dgrd, Aval, Vinfo, ncname)
++        IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
++# endif
+ # ifdef WEC_VF
+ !
+ !  Define WEC quasi-static geopotential: prsgrd uses the value of the
+diff -ruN a/ROMS/Utility/get_state.F b/ROMS/Utility/get_state.F
+--- a/ROMS/Utility/get_state.F
++++ b/ROMS/Utility/get_state.F
+@@ -53,6 +53,9 @@
+       USE mod_sediment
+ #endif
+       USE mod_stepping
++#if defined WEC_ROLLER && defined ROLLER_RENIERS
++      USE mod_forces           ! rollA (project patch roms-restart-roller)
++#endif
+       USE mod_strings
+ #if defined VEGETATION 
+       USE mod_vegetation
+diff -ruN a/ROMS/Utility/get_state_nlm_nf90.h b/ROMS/Utility/get_state_nlm_nf90.h
+--- a/ROMS/Utility/get_state_nlm_nf90.h
++++ b/ROMS/Utility/get_state_nlm_nf90.h
+@@ -247,6 +247,77 @@
+             END IF
+           END IF
+         END IF
++#if defined PERFECT_RESTART && defined WEC_ROLLER && defined ROLLER_RENIERS
++!
++!  Read in the wave roller (rollA), carried from step to step by
++!  ROLLER_RENIERS (project patch roms-restart-roller). Restart files
++!  written without it leave it zero.
++!
++        IF (Perfect2D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idWrol)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*r2dvar
++            status=nf_fread2d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idWrol), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj,                       &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % rmask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        FORCES(ng) % rollA,                       &
++     &                        checksum = Fhash)
++# else
++     &                        FORCES(ng) % rollA)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idWrol)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            END IF
++          END IF
++        END IF
++!
++!  And its dissipation (Dissip_roller), which the first step after a
++!  restart uses without updating the roller (wec_roller.F).
++!
++        IF (Perfect2D) THEN
++          foundit=find_string(var_name, n_var, TRIM(Vname(1,idWdis)),   &
++     &                        varid)
++          IF (foundit) THEN
++            gtype=var_flag(varid)*r2dvar
++            status=nf_fread2d(ng, IDmod, ncname, ncINPid,               &
++     &                        Vname(1,idWdis), varid,                   &
++     &                        InpRec, gtype, Vsize,                     &
++     &                        LBi, UBi, LBj, UBj,                       &
++     &                        Fscl, Fmin, Fmax,                         &
++# ifdef MASKING
++     &                        GRID(ng) % rmask,                         &
++# endif
++# ifdef CHECKSUM
++     &                        FORCES(ng) % Dissip_roller,                       &
++     &                        checksum = Fhash)
++# else
++     &                        FORCES(ng) % Dissip_roller)
++# endif
++            IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++              IF (Master) THEN
++                WRITE (stdout,60) string, TRIM(Vname(1,idWdis)),        &
++     &                            InpRec, TRIM(ncname)
++              END IF
++              exit_flag=2
++              ioerror=status
++              RETURN
++            END IF
++          END IF
++        END IF
++#endif
+ #if defined PERFECT_RESTART && defined WEC_VF
+ !
+ !  Read in WEC quasi-static geopotential (m2/s2), which prsgrd uses from
+diff -ruN a/ROMS/Utility/wrt_rst.F b/ROMS/Utility/wrt_rst.F
+--- a/ROMS/Utility/wrt_rst.F
++++ b/ROMS/Utility/wrt_rst.F
+@@ -32,6 +32,9 @@
+       USE mod_sediment
+ #endif
+       USE mod_stepping
++#if defined WEC_ROLLER && defined ROLLER_RENIERS
++      USE mod_forces           ! rollA (project patch roms-restart-roller)
++#endif
+ !
+ #ifdef ICE_MODEL
+       USE ice_output_mod,  ONLY : ice_wrt_nf90
+@@ -413,6 +416,52 @@
+         ioerror=status
+         RETURN
+       END IF
++# if defined WEC_ROLLER && defined ROLLER_RENIERS
++!
++!  Write out the wave roller (rollA), carried from step to step by
++!  ROLLER_RENIERS (project patch roms-restart-roller).
++!
++      scale=1.0_dp
++      gtype=gfactor*r2dvar
++      status=nf_fwrite2d(ng, model, RST(ng)%ncid, idWrol,               &
++     &                   RST(ng)%Vid(idWrol),                           &
++     &                   RST(ng)%Rindex, gtype,                         &
++     &                   LBi, UBi, LBj, UBj, scale,                     &
++#  ifdef MASKING
++     &                   GRID(ng) % rmask,                              &
++#  endif
++     &                   FORCES(ng) % rollA)
++      IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++        IF (Master) THEN
++          WRITE (stdout,20) TRIM(Vname(1,idWrol)), RST(ng)%Rindex
++        END IF
++        exit_flag=3
++        ioerror=status
++        RETURN
++      END IF
++!
++!  and its dissipation, which the first step after a restart uses
++!  without recomputing it (wec_roller.F).
++!
++      scale=1.0_dp
++      gtype=gfactor*r2dvar
++      status=nf_fwrite2d(ng, model, RST(ng)%ncid, idWdis,               &
++     &                   RST(ng)%Vid(idWdis),                           &
++     &                   RST(ng)%Rindex, gtype,                         &
++     &                   LBi, UBi, LBj, UBj, scale,                     &
++#  ifdef MASKING
++     &                   GRID(ng) % rmask,                              &
++#  endif
++     &                   FORCES(ng) % Dissip_roller)
++      IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++        IF (Master) THEN
++          WRITE (stdout,20) TRIM(Vname(1,idWdis)), RST(ng)%Rindex
++        END IF
++        exit_flag=3
++        ioerror=status
++        RETURN
++      END IF
++# endif
+ # ifdef WEC_VF
+ !
+ !  Write out WEC quasi-static geopotential (used lagged by prsgrd).
