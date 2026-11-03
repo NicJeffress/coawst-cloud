@@ -1,0 +1,253 @@
+--- a/Master/mct_roms_swan.h
++++ b/Master/mct_roms_swan.h
+@@ -2055,13 +2055,13 @@
+       ij=0
+       DO j=JstrR,JendR
+         ij=ij+1
+-        A(ij)=FORCES(ng)%Dissip_veg(25,j)
++        A(ij)=VEG(ng)%Dissip_veg(25,j)
+       END DO
+       DO i=IstrR,IendR
+         ij=0
+         DO j=JstrR,JendR
+           ij=ij+1
+-          FORCES(ng)%Dissip_veg(i,j)=A(ij)
++          VEG(ng)%Dissip_veg(i,j)=A(ij)
+         END DO
+       END DO
+ # endif
+@@ -2528,6 +2528,16 @@
+      &                        LBi, UBi, LBj, UBj,                       &
+      &                        FORCES(ng)%Wave_break)
+ !# endif
++#if defined VEGETATION && defined VEG_SWAN_COUPLING && \
++    defined VEG_STREAMING
++!
++!  roms-veg-streaming-fixes: the canopy dissipation needs its ghost points
++!  too (vegetation_stream.F averages the force to u- and v-points).
++!
++      CALL exchange_r2d_tile (ng, tile,                                 &
++     &                        LBi, UBi, LBj, UBj,                       &
++     &                        VEG(ng)%Dissip_veg)
++#endif
+ # ifdef WAVES_DSPR
+       CALL exchange_r2d_tile (ng, tile,                                 &
+      &                        LBi, UBi, LBj, UBj,                       &
+@@ -2620,6 +2630,14 @@
+      &                    EWperiodic(ng), NSperiodic(ng),               &
+      &                    FORCES(ng)%Wave_break)
+ !# endif
++#if defined VEGETATION && defined VEG_SWAN_COUPLING && \
++    defined VEG_STREAMING
++      CALL mp_exchange2d (ng, tile, iNLM, 1,                            &
++     &                    LBi, UBi, LBj, UBj,                           &
++     &                    NghostPoints,                                 &
++     &                    EWperiodic(ng), NSperiodic(ng),               &
++     &                    VEG(ng)%Dissip_veg)
++#endif
+ # ifdef WAVES_DSPR
+       CALL mp_exchange2d (ng, tile, iNLM, 2,                            &
+      &                    LBi, UBi, LBj, UBj,                           &
+--- a/ROMS/Nonlinear/Vegetation/vegetation_stream.F
++++ b/ROMS/Nonlinear/Vegetation/vegetation_stream.F
+@@ -50,13 +50,12 @@
+      &                              LBi, UBi, LBj, UBj,                 &
+      &                              IminS, ImaxS, JminS, JmaxS,         &
+      &                              GRID(ng) % angler,                  &
+-# ifdef SOLVE3D
+      &                              GRID(ng) % z_w,                     &
+-# endif
++     &                              GRID(ng) % Hz,                      &
+      &                              FORCES(ng) % Dwave,                 &
+      &                              FORCES(ng) % Lwave,                 &
++     &                              VEG(ng) % plant,                    &
+      &                              VEG(ng) % dissip_veg,               &
+-     &                              VEG(ng) % Lveg,                     &
+      &                              VEG(ng) % BWDXL_veg,                &
+      &                              VEG(ng) % BWDYL_veg)
+ # ifdef PROFILE
+@@ -70,13 +69,9 @@
+       SUBROUTINE vegetation_stream_tile  (ng, tile,                     &
+      &                                    LBi, UBi, LBj, UBj,           &
+      &                                    IminS, ImaxS, JminS, JmaxS,   &
+-     &                                    angler,                       &
+-# ifdef SOLVE3D
+-     &                                    z_w,                          &
+-# endif
+-     &                                    Dwave,                        &
+-     &                                    Lwave,                        &
+-     &                                    dissip_veg, Lveg,             &
++     &                                    angler, z_w, Hz,              &
++     &                                    Dwave, Lwave,                 &
++     &                                    plant, dissip_veg,            &
+      &                                    BWDXL_veg, BWDYL_veg)
+ !***********************************************************************
+ !
+@@ -88,24 +83,22 @@
+ !
+ # ifdef ASSUMED_SHAPE
+       real(r8), intent(in) :: angler(LBi:,LBj:)
+-#  ifdef SOLVE3D
+       real(r8), intent(in) :: z_w(LBi:,LBj:,0:)
+-#  endif
++      real(r8), intent(in) :: Hz(LBi:,LBj:,:)
+       real(r8), intent(in) :: Lwave(LBi:,LBj:)
+       real(r8), intent(in) :: Dwave(LBi:,LBj:)
++      real(r8), intent(in) :: plant(LBi:,LBj:,:,:)
+       real(r8), intent(in) :: dissip_veg(LBi:,LBj:)
+-      real(r8), intent(in) :: Lveg(LBi:,LBj:,:)
+       real(r8), intent(inout) :: BWDXL_veg(LBi:,LBj:,:)
+       real(r8), intent(inout) :: BWDYL_veg(LBi:,LBj:,:)
+ # else
+-      real(r8), intent(in)  :: angler(LBi:UBi,LBj:UBj)
+-#  ifdef SOLVE3D
+-      real(r8), intent(in) :: z_w(LBi:UBi,LBj:UBj,UBk)
+-#  endif
+-      real(r8), intent(in)  :: Lwave(LBi:UBi,LBj:UBj)
+-      real(r8), intent(in)  :: Dwave(LBi:UBi,LBj:UBj)
++      real(r8), intent(in) :: angler(LBi:UBi,LBj:UBj)
++      real(r8), intent(in) :: z_w(LBi:UBi,LBj:UBj,0:N(ng))
++      real(r8), intent(in) :: Hz(LBi:UBi,LBj:UBj,N(ng))
++      real(r8), intent(in) :: Lwave(LBi:UBi,LBj:UBj)
++      real(r8), intent(in) :: Dwave(LBi:UBi,LBj:UBj)
++      real(r8), intent(in) :: plant(LBi:UBi,LBj:UBj,NVEG,NVEGP)
+       real(r8), intent(in) :: dissip_veg(LBi:UBi,LBj:UBj)
+-      real(r8), intent(in) :: Lveg(LBi:UBi,LBj:UBj,N(ng))
+       real(r8), intent(inout) :: BWDXL_veg(LBi:UBi,LBj:UBj,N(ng))
+       real(r8), intent(inout) :: BWDYL_veg(LBi:UBi,LBj:UBj,N(ng))
+ # endif
+@@ -113,47 +106,64 @@
+ !  Local variable declarations.
+ !
+       integer :: i, j, k, iveg
+-      real(r8) :: cff1, cff2
+-      real(r8) :: EWD_veg
++      real(r8) :: cff, cff1, cff2, frac, wsum
+       real(r8), parameter :: Lwave_min = 1.0_r8
+ 
+       real(r8) :: Dstp
+       real(r8) :: waven, wavenx, waveny
+       real(r8) :: sigma, osigma
++      real(r8), dimension(N(ng)) :: wk
+ 
+ # include "set_bounds.h"
+ !
+-!----------------------------------------------------------------------
+-!----------Executing the code------------------------------------------
+-!----------------------------------------------------------------------
+-!
+-      DO k=1,N(ng)
+-        DO j=Jstr,Jend
+-          DO i=Istr,Iend
+-            Dstp=z_w(i,j,N(ng))-z_w(i,j,0)
+-!
+-!----------------------------------------------------------------------
+-!  Compute wave amplitude (0.5*Hrms), wave number, intrinsic frequency.
+-!----------------------------------------------------------------------
+-!
+-            waven=2.0_r8*pi/MAX(Lwave(i,j),Lwave_min)
+-            cff1=1.5_r8*pi-Dwave(i,j)-angler(i,j)
+-            wavenx=waven*COS(cff1)
+-            waveny=waven*SIN(cff1)
+-            sigma=MIN(SQRT(g*waven*TANH(waven*Dstp)),2.0_r8)
+-            osigma=1.0_r8/sigma
+-!
+-!----------------------------------------------------------------------
+-!   Note: Alexis - check if we need a local dissip_veg here
+-!   Also Lveg is for 1 veg type only
+-!----------------------------------------------------------------------
+-!
+-            EWD_veg=dissip_veg(i,j)
+-            cff2=EWD_veg*osigma*Lveg(i,j,k)
+-            BWDXL_veg(i,j,k)=cff2*wavenx
+-            BWDYL_veg(i,j,k)=cff2*waveny
+-!
+-           END DO
++!-----------------------------------------------------------------------
++!  Wave streaming force inside the canopy (Luhar et al. 2010): the wave
++!  momentum lost to the plants, Dissip_veg k/sigma (m2/s2 after the
++!  coupler's division by rho0), is given to the mean flow in the canopy
++!  layers. coawst-cloud patch roms-veg-streaming-fixes: each layer gets
++!  the share of the canopy's frontal area in it (Cd D n times the layer
++!  thickness inside the canopy), so that the force integrates over depth
++!  to Dissip_veg k/sigma. Before, every canopy layer received the full
++!  Dissip_veg k/sigma times its canopy fraction (the depth integral was
++!  that value times the canopy height in metres); the canopy fraction was
++!  taken from vegetation_drag before it ran in the step (the previous
++!  step's value, and zero after a restart); and the force was computed
++!  on interior points only, although wec_streaming averages it to u- and
++!  v-points with the neighbouring points. The canopy height here is the
++!  rigid height (VEG_FLEX bending is not applied).
++!-----------------------------------------------------------------------
++!
++      DO j=Jstr-1,Jend+1
++        DO i=Istr-1,Iend+1
++          Dstp=z_w(i,j,N(ng))-z_w(i,j,0)
++          waven=2.0_r8*pi/MAX(Lwave(i,j),Lwave_min)
++          cff1=1.5_r8*pi-Dwave(i,j)-angler(i,j)
++          wavenx=waven*COS(cff1)
++          waveny=waven*SIN(cff1)
++          sigma=MIN(SQRT(g*waven*TANH(waven*Dstp)),2.0_r8)
++          osigma=1.0_r8/sigma
++!
++!  Frontal area of the canopy in each layer.
++!
++          wsum=0.0_r8
++          DO k=1,N(ng)
++            wk(k)=0.0_r8
++            DO iveg=1,NVEG
++              cff=plant(i,j,iveg,isHght)-(z_w(i,j,k-1)-z_w(i,j,0))
++              frac=MAX(0.0_r8,MIN(cff/Hz(i,j,k),1.0_r8))
++              wk(k)=wk(k)+CD_VEG(iveg,ng)*plant(i,j,iveg,isDiam)*       &
++     &                    plant(i,j,iveg,isDens)*frac*Hz(i,j,k)
++            END DO
++            wsum=wsum+wk(k)
++          END DO
++!
++          cff2=0.0_r8
++          IF (wsum.gt.0.0_r8) cff2=dissip_veg(i,j)*osigma/wsum
++          DO k=1,N(ng)
++            cff=cff2*wk(k)/Hz(i,j,k)
++            BWDXL_veg(i,j,k)=cff*wavenx
++            BWDYL_veg(i,j,k)=cff*waveny
++          END DO
+         END DO
+       END DO
+ !
+--- a/ROMS/Nonlinear/WEC/wec_streaming.F
++++ b/ROMS/Nonlinear/WEC/wec_streaming.F
+@@ -436,10 +436,14 @@
+ 
+ #  endif
+ #  if defined VEGETATION && defined VEG_STREAMING
++!
++!  Canopy streaming (vegetation_stream.F) on top of the bottom streaming
++!  (coawst-cloud patch roms-veg-streaming-fixes: it used to replace it).
++!
+         DO j=Jstr-1,Jend+1
+           DO i=Istr-1,Iend+1
+-            BWDXL(i,j)=BWDXL_veg(i,j,k)
+-            BWDYL(i,j)=BWDYL_veg(i,j,k)
++            BWDXL(i,j)=BWDXL(i,j)+BWDXL_veg(i,j,k)
++            BWDYL(i,j)=BWDYL(i,j)+BWDYL_veg(i,j,k)
+           END DO
+         END DO
+ #  endif
+@@ -453,7 +457,7 @@
+             cff=0.5_r8*(BWDXL(i  ,j)*Hz(i  ,j,k)+                       &
+      &                  BWDXL(i-1,j)*Hz(i-1,j,k))
+             rustr3d(i,j,k)=rustr3d(i,j,k)-cff
+-            rubst2d(i,j)=rubst2d(i,j)+cff*cff1*om_u(i,j)*on_u(i,j)
++            rubst2d(i,j)=rubst2d(i,j)+cff*om_u(i,j)*on_u(i,j)
+ #  ifdef DIAGNOSTICS_UV
+             DiaRU(i,j,k,nrhs,M3bstm)=cff*om_u(i,j)*on_u(i,j)
+ #  endif
+@@ -469,7 +473,7 @@
+             cff=0.5_r8*(BWDYL(i,j  )*Hz(i,j  ,k)+                       &
+      &                  BWDYL(i,j-1)*Hz(i,j-1,k))
+             rvstr3d(i,j,k)=rvstr3d(i,j,k)-cff
+-            rvbst2d(i,j)=rvbst2d(i,j)+cff*cff1*om_v(i,j)*on_v(i,j)
++            rvbst2d(i,j)=rvbst2d(i,j)+cff*om_v(i,j)*on_v(i,j)
+ #  ifdef DIAGNOSTICS_UV
+             DiaRV(i,j,k,nrhs,M3bstm)=cff*om_v(i,j)*on_v(i,j)
+ #  endif
