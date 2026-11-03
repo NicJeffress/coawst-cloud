@@ -1,0 +1,65 @@
+diff -ruN a/ROMS/Nonlinear/WEC/wec_roller.F b/ROMS/Nonlinear/WEC/wec_roller.F
+--- a/ROMS/Nonlinear/WEC/wec_roller.F
++++ b/ROMS/Nonlinear/WEC/wec_roller.F
+@@ -38,6 +38,9 @@
+ # ifdef DISTRIBUTE
+       USE mp_exchange_mod, ONLY : mp_exchange2d
+ # endif
++# if defined ROLLER_RENIERS && defined DISTRIBUTE
++      USE distribute_mod,  ONLY : mp_reduce
++# endif
+ !
+       implicit none
+ !
+@@ -188,6 +191,13 @@
+ !
+       integer :: i, j, k, numits, it
+       real(r8) :: cff, cff1, cff2, cff3
++# ifdef ROLLER_RENIERS
++      real(r8) :: cfl
++#  ifdef DISTRIBUTE
++      real(r8), dimension(1) :: rbuffer
++      character (len=3), dimension(1) :: op_handle
++#  endif
++# endif
+       real(r8), parameter :: sinb=0.1_r8
+       real(r8), parameter :: eps = 1.0E-14_r8
+       real(r8), parameter :: kDmax = 5.0_r8
+@@ -266,7 +276,36 @@
+ !  Solve roller evolution equation for rollA.
+ !
+ !     numits=30
+-      numits=1
++!     numits=1
++!
++!  Project patch roms-roller-substeps: the roller area is advected with an
++!  explicit upwind step at the speed of the current plus the wave celerity;
++!  with a single step per baroclinic DT it is unstable once that Courant
++!  number exceeds 1 (wave celerity 3-6 m/s on a reef crest, 20 m cells:
++!  DT 6 s fails, DT 3 s runs). Take as many equal sub-steps as needed to
++!  keep the largest outflow Courant number of any cell at or below 0.9.
++!
++      cfl=0.0_r8
++      DO j=Jstr,Jend
++        DO i=Istr,Iend
++          cff1=ABS(ubar(i  ,j,nrhs)+wavenx(i  ,j)*owaven(i  ,j)*        &
++     &             wavec(i  ,j))*on_u(i  ,j)+                           &
++     &         ABS(ubar(i+1,j,nrhs)+wavenx(i+1,j)*owaven(i+1,j)*        &
++     &             wavec(i+1,j))*on_u(i+1,j)
++          cff2=ABS(vbar(i,j  ,nrhs)+waveny(i,j  )*owaven(i,j  )*        &
++     &             wavec(i,j  ))*om_v(i,j  )+                           &
++     &         ABS(vbar(i,j+1,nrhs)+waveny(i,j+1)*owaven(i,j+1)*        &
++     &             wavec(i,j+1))*om_v(i,j+1)
++          cfl=MAX(cfl,dt(ng)*pm(i,j)*pn(i,j)*(cff1+cff2))
++        END DO
++      END DO
++#  ifdef DISTRIBUTE
++      rbuffer(1)=cfl
++      op_handle(1)='MAX'
++      CALL mp_reduce (ng, iNLM, 1, rbuffer, op_handle)
++      cfl=rbuffer(1)
++#  endif
++      numits=MAX(1,CEILING(cfl/0.9_r8))
+ !
+       DO it=1,numits
+ !
