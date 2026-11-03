@@ -298,7 +298,7 @@ revisited without one.
 | `MIX_S_TS`, `MIX_GEO_TS`, `MIX_ISO_TS` (+ `TS_MIX_MAX_SLOPE`, `TS_MIX_MIN_STRAT`, `TS_MIX_STABILITY`, `TS_MIX_CLIMA`) | direction of the explicit tracer diffusion: along sigma (spurious diapycnal mixing on slopes), along z, or along isopycnals (with slope limits). | `MIX_GEO_TS` where `TS_DIF2` is on; irrelevant with `TNU2 = 0` |
 | `Hadvection`, `Vadvection` (`ocean.in`, per tracer) | `U3`/`C4` (ROMS classic, cheap, over/undershoots), `C2`, `A4` (Akima), `SU3` (split U3; needs `TS_U3ADV_SPLIT`, `TS_DIF4` and a rotated mixing option), `HSIMT` (3rd-order TVD, Wu and Zhu 2010, monotone), `MPDATA` (recursive flux correction, positive definite, sharpest fronts), `SPLINES` (vertical only). | **`MPDATA` for every tracer**. Evidence (the realistic case, 13 h forced, 2026-10-23): MPDATA is monotone and mixes least; U3 + splines gives the same temperatures for less cost but overshoots by up to 0.16 C; HSIMT mixed 3x more. Shchepetkin's caveat (Living with ROMS section 11): MPDATA is sign preserving, not TVD; it can create a new extremum near a sharp front, which is one more reason to avoid grid-scale fronts in initial conditions. Cost: several passes and three ghost points |
 | `TS_MPDATA_LIMIT` | limits the upwind corrector fluxes for stability. | keep off unless MPDATA itself misbehaves |
-| `SPLINES_VDIFF` | parabolic-spline reconstruction of the vertical tracer flux in the implicit vertical diffusion. | on in both families (continuity with every result so far). Arango's remark that "many users get better results without" (Living with ROMS section 11) makes it a **sensitivity** for the thermal case, where the surface heat flux enters through this operator. Treat together with `SPLINES_VVISC` (section 1.6) |
+| `SPLINES_VDIFF` | parabolic-spline reconstruction of the vertical tracer flux in the implicit vertical diffusion. | **inert with MPDATA tracer advection** (tested 2026-11-03: bit-identical on the stratified case): `step3d_t.F` uses the spline only for tracers not advected with MPDATA; matters only with U3 or HSIMT tracers |
 | `SOLAR_SOURCE` (+ `WTYPE`, `WTYPE_GRID`) | shortwave absorbed over depth with the Paulson and Simpson Jerlov profile (`WTYPE` 1 = clearest). Light reaching the bed heats the bottom cell. | **use** in every heated case (on in `_therm`). Jerlov type 1 is right for clear reef water; a `WTYPE_GRID` with a turbid lagoon class is a later refinement |
 | `LIMIT_STFLX_COOLING` | no cooling below the freezing point. | off |
 | `QCORRECTION`, `SCORRECTION`, `SRELAXATION` | SST/SSS restoring corrections to the fluxes. | off (no observed SST to restore to; the far-field nudging band does the equivalent at the boundary) |
@@ -387,7 +387,7 @@ GLS sub-options:
 
 | Option | What it does | Verdict |
 |---|---|---|
-| `KANTHA_CLAYSON` / `CANUTO_A` / `CANUTO_B` | stability functions. Kantha and Clayson (1994) are quasi-equilibrium Galperin-type functions that shut mixing off above Ri about 0.2; Canuto A and B (2001) keep mixing to Ri about 1 and are derived differently (Living with ROMS section 6). Warner et al. (2005) found the closures and stability functions within each other's scatter in their tests | `KANTHA_CLAYSON` (every run so far). `CANUTO_A` is a **sensitivity** for the stratified cases: it mixes more in weakly stable shear layers (the crest jet over the stratified lagoon) |
+| `KANTHA_CLAYSON` / `CANUTO_A` / `CANUTO_B` | stability functions. Kantha and Clayson (1994) are quasi-equilibrium Galperin-type functions that shut mixing off above Ri about 0.2; Canuto A and B (2001) keep mixing to Ri about 1 and are derived differently (Living with ROMS section 6). Warner et al. (2005) found the closures and stability functions within each other's scatter in their tests | `KANTHA_CLAYSON` (every run so far). `CANUTO_A` is a **sensitivity** for the stratified cases (on the heated reef 2026-11-03: within 1-3 % of Kantha-Clayson; gen within 5 %; k-omega odd in the lagoon; k-epsilon kept, proposed): it mixes more in weakly stable shear layers (the crest jet over the stratified lagoon) |
 | `N2S2_HORAVG` | horizontal smoothing of the buoyancy and shear terms before they enter the production (4-point average). | on, except with `VEG_TURB`, where the headers switch it off so the canopy source stays local to the canopy cells |
 | `RI_SPLINES` | spline reconstruction of the vertical shear. | on: better shear in uneven layers |
 | `K_C2ADVECTION`, `K_C4ADVECTION` | centred advection of k and gls instead of the default U3 | off |
@@ -590,7 +590,7 @@ and 11 at Hs 2 m, which doubles the cost).
 
 | Option | What it does | Verdict |
 |---|---|---|
-| `SPLINES_VDIFF`, `SPLINES_VVISC` | see sections 1.4 and 1.6 | `VVISC` off, `VDIFF` on (sensitivity) |
+| `SPLINES_VDIFF`, `SPLINES_VVISC` | see sections 1.4 and 1.6 | `VVISC` off, `VDIFF` on (inert with MPDATA) |
 | `RI_SPLINES`, `N2S2_HORAVG` | see 1.6 | on, on (off with `VEG_TURB`) |
 | `TS_MPDATA_LIMIT` | see 1.4 | off |
 | `INITIALIZE_AUTOMATIC` | zero the automatic arrays in `step2d` (a debugging aid). | off |
