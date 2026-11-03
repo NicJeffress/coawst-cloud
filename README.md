@@ -35,7 +35,7 @@ This repository gives you:
 
 1. **A container image of COAWST** (ROMS + SWAN coupled through MCT; no WRF or
    WAVEWATCH III). It is built from the public COAWST repository at a pinned
-   commit, plus a series of 27 patches. The image runs the same way on a
+   commit, plus a series of 28 patches. The image runs the same way on a
    laptop (Docker), a cluster (Apptainer) or the cloud. Your case's cpp
    options are compiled in; `.in` files and input NetCDF are read at run time,
    so one image serves a whole ensemble.
@@ -146,7 +146,7 @@ image's layout, Apptainer for clusters, MPI layouts and troubleshooting.
 
 ## The COAWST patches
 
-27 patches, applied in the order of
+28 patches, applied in the order of
 [`build/coawst/patches/series`](build/coawst/patches/series), plus build
 settings. The [patch index](build/coawst/patches/README.md) has the full
 table; each patch has a document next to it with a status card (type, does it
@@ -155,7 +155,7 @@ before and after, and its limits.
 
 | Tier | Patches | What it means | What its test must show |
 |---|---|---|---|
-| **fixes** | 18 | COAWST did something wrong | fails without the patch, passes with it |
+| **fixes** | 19 | COAWST did something wrong | fails without the patch, passes with it |
 | **improvements** | 5 + build settings | no change to the physics, or a new capability | results unchanged (bit-identical or rounding level) |
 | **experimental** | 4 | off unless their cpp option is defined | build unchanged with the option off; an honest list of what has been checked |
 

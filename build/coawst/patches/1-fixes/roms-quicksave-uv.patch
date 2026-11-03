@@ -1,0 +1,58 @@
+diff -ruN a/ROMS/Utility/wrt_quick.F b/ROMS/Utility/wrt_quick.F
+--- a/ROMS/Utility/wrt_quick.F
++++ b/ROMS/Utility/wrt_quick.F
+@@ -571,6 +571,54 @@
+ 
+ #ifdef SOLVE3D
+ !
++!  Write out 3D U-momentum component (m/s).
++!  (Project patch roms-quicksave-uv: this routine never wrote it, although
++!  the quicksave file defines it; the PIO routine below does.)
++!
++      IF (Qout(idUvel,ng)) THEN
++        scale=1.0_dp
++        gtype=gfactor*u3dvar
++        status=nf_fwrite3d(ng, model, QCK(ng)%ncid, idUvel,             &
++     &                     QCK(ng)%Vid(idUvel),                         &
++     &                     QCK(ng)%Rindex, gtype,                       &
++     &                     LBi, UBi, LBj, UBj, 1, N(ng), scale,         &
++# ifdef MASKING
++     &                     GRID(ng) % umask_full,                       &
++# endif
++     &                     OCEAN(ng) % u(:,:,:,NOUT))
++        IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++          IF (Master) THEN
++            WRITE (stdout,20) TRIM(Vname(1,idUvel)), QCK(ng)%Rindex
++          END IF
++          exit_flag=3
++          ioerror=status
++          RETURN
++        END IF
++      END IF
++!
++!  Write out 3D V-momentum component (m/s).
++!
++      IF (Qout(idVvel,ng)) THEN
++        scale=1.0_dp
++        gtype=gfactor*v3dvar
++        status=nf_fwrite3d(ng, model, QCK(ng)%ncid, idVvel,             &
++     &                     QCK(ng)%Vid(idVvel),                         &
++     &                     QCK(ng)%Rindex, gtype,                       &
++     &                     LBi, UBi, LBj, UBj, 1, N(ng), scale,         &
++# ifdef MASKING
++     &                     GRID(ng) % vmask_full,                       &
++# endif
++     &                     OCEAN(ng) % v(:,:,:,NOUT))
++        IF (FoundError(status, nf90_noerr, __LINE__, MyFile)) THEN
++          IF (Master) THEN
++            WRITE (stdout,20) TRIM(Vname(1,idVvel)), QCK(ng)%Rindex
++          END IF
++          exit_flag=3
++          ioerror=status
++          RETURN
++        END IF
++      END IF
++!
+ !  Write out surface U-momentum component (m/s).
+ !
+       IF (Qout(idUsur,ng)) THEN
