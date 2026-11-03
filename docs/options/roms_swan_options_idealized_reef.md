@@ -62,7 +62,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Open boundary | periodic E-W; north: `Che`/`Shc`/`RadNud` + interior nudging band, TKE `Gra`, Stokes `Gra` | 1.10 |
 | Barotropic kernel | LF-AM3 (default) or `STEP2D_FB_AB3_AM4` (as accurate, 2.4x cheaper 2-D kernel; the realistic case's default) | 2.3 |
 | Time step | DT 6 s (3 s with patchy canopies or N^2 >= 3e-4), NDTFAST 24; barotropic Courant 0.8-0.85; shallower and faster crests need 4 s or 2 s | 2.2 |
-| Vertical grid | N 10, Vtransform 2, Vstretching 4, theta_s 3, theta_b 2, Tcline 20 | 2.1 |
+| Vertical grid | N 15 (since 2026-11-03; was 10), Vtransform 2, Vstretching 4, theta_s 3, theta_b 2, Tcline 20 | 2.1 |
 | SWAN physics | `GEN3` (no wind: inert), **`BREAKING BKD 1.0 0.54 7.59 -8.06 8.09` (A15 default since 2026-11-03, author; was CON 1.0 0.73)**, `FRICTION MADSEN` (KN from ROMS), `TRIAD` (DCTA), `OFF QUAD`; `VEGETATION 3` with the canopy | 3 |
 | SWAN numerics | nonstationary, `PROP BSBT`, dt 120 s, one iteration per step, default limiter; `CTHETA` tested 2026-11-03: not needed (within 0.7 %) | 4 |
 | Coupling | MCT, same grid, 600 s exchange; 300 s **sensitivity** | 5 |
@@ -538,7 +538,7 @@ Listed so that the catalogue is complete; all stay off.
 
 | Parameter | Choice | Why |
 |---|---|---|
-| `N` | 10 | enough to resolve a log layer, the surface heating layer and the Stokes drift profile offshore; on the crest it gives 3-5 cm layers, which is already the thinnest the explicit bottom stress tolerates. 20 levels made the realistic case's implicit-stress runs fail earlier (thinner surface layer under the concentrated breaking force, notebook 2026-10-27), raises rx1 and the pressure-gradient error, and roughly doubles cost. If vertical structure on the reef flat is ever the target, raise `N` together with the crest-smoothing rule and a new rest test |
+| `N` | **15 on A15 since 2026-11-03** (author; N 10 was not converged: set-up -7 % at N 15, -10 to -12 % at N 20, which needs DT 3 s); 10 before | enough to resolve a log layer, the surface heating layer and the Stokes drift profile offshore; on the crest it gives 3-5 cm layers, which is already the thinnest the explicit bottom stress tolerates. 20 levels made the realistic case's implicit-stress runs fail earlier (thinner surface layer under the concentrated breaking force, notebook 2026-10-27), raises rx1 and the pressure-gradient error, and roughly doubles cost. If vertical structure on the reef flat is ever the target, raise `N` together with the crest-smoothing rule and a new rest test |
 | `Vtransform` 2, `Vstretching` 4 | the modern transformation (Shchepetkin 2005) and the double-stretching function | the ROMS recommendation; in water shallower than `TCLINE` the layers are near-uniform, which is what the crest needs |
 | `THETA_S` 3, `THETA_B` 2, `TCLINE` 20 m | moderate surface and bottom refinement below 20 m | resolves the surface heated layer and the bottom boundary layer offshore without thinning the crest layers. Shchepetkin's forum rule (Living with ROMS section 14.1): coarser vertical resolution and surface-concentrated stretching tolerate steeper topography, so do not raise `THETA_B` on steep slopes |
 | rx0, rx1 | A15 about 0.15 / small (the realistic case: rx0 0.15, rx1 2.8) | the crest-smoothing rule (crest >= 0.4 m, rx0 <= 0.2) is a numerics requirement for the implicit bottom stress and for the pressure gradient; keep it in the grid generators |
@@ -972,7 +972,7 @@ current case files, "change" marks a recommended edit.
 #define OUT_NETCDF4  DEFLATE                     (build default)
 ```
 
-`ocean.in`: `N` 10, `Vtransform` 2, `Vstretching` 4, `THETA_S` 3,
+`ocean.in`: `N` 15 (since 2026-11-03; was 10), `Vtransform` 2, `Vstretching` 4, `THETA_S` 3,
 `THETA_B` 2, `TCLINE` 20; `DT` 6, `NDTFAST` 24 (3 and 12 with patchy
 explicit canopies or N^2 >= 3e-4); `Hadvection`/`Vadvection` `MPDATA`;
 LBC: `Per Clo Per Che` (zeta), `Per Clo Per Shc` (ubar, vbar),
