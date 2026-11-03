@@ -57,7 +57,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Bottom stress | `SSW_BBL` + `SSW_CALC_ZNOT` + `SSW_LOGINT_WBL`; explicit and uncapped as now (converged in DT on A15); `LIMIT_BSTRESS` only if stronger forcing destabilizes it; `BSTRESS_IMPLICIT -SPLINES_VVISC` when the crest jet is the target (and on shallower, faster crests) | 1.5 |
 | Roughness | `grain_diameter` in the initial file (0.12 m = z0 0.01 m) and/or canopy drag: usually one or the other, but both is allowed (a rough bed under a canopy; the A15 canopy cases have both); SWAN gets KN = 30 z0 from ROMS | 1.5, 5 |
 | Canopy | `VEGETATION` + `VEG_DRAG` + `VEG_TURB` (+ `VEG_SWAN_COUPLING`, SWAN `VEGETATION 3`); explicit drag, `VEG_DRAG_IMPLICIT` for patchy or dense canopies; `VEG_FLEX` off | 1.7 |
-| Wave forcing | `WEC_VF`, `WDISS_WAVEMOD`, `SPECTRUM_STOKES`, `UV_KIRBY`; rollers and streaming off; `DISSIP_BREAK_DIR` never with SWAN | 1.8 |
+| Wave forcing | `WEC_VF`, `WDISS_WAVEMOD`, `SPECTRUM_STOKES`, `UV_KIRBY`; **Reniers roller (`WEC_ALPHA` 0.5), `BOTTOM_STREAMING` and `VEG_STREAMING` on since 2026-11-03**; `DISSIP_BREAK_DIR` never with SWAN | 1.8 |
 | Surface fluxes | analytic heat flux with SST feedback now; `BULK_FLUXES` + `SOLAR_SOURCE` + `WIND_MINUS_CURRENT` when winds arrive | 1.9 |
 | Open boundary | periodic E-W; north: `Che`/`Shc`/`RadNud` + interior nudging band, TKE `Gra`, Stokes `Gra` | 1.10 |
 | Barotropic kernel | LF-AM3 (default) or `STEP2D_FB_AB3_AM4` (as accurate, 2.4x cheaper 2-D kernel; the realistic case's default) | 2.3 |
@@ -430,7 +430,7 @@ thickness t, with drag, turbulence and wave dissipation.
 | (note) `VEG_TURB` with other GLS closures | its source is added to the length-scale variable as an epsilon source (`gls_c2 P_veg / tau`), correct only for k-epsilon | **to circle back to**: if k-omega, gen or k-kl is chosen, patch the source to the generic psi equation first; with k-epsilon no patch is needed. The closure test of 2026-11-03 runs with `VEG_TURB` off in every member |
 | `VEG_FLEX` (`E_VEG`, `VEG_MASSDENS`) | flexible blades: effective height reduced by bending (stiffness D t^3/12). | **off**: corals are rigid; the formula is for flat blades |
 | `VEG_SWAN_COUPLING` | ROMS sends plant density, height, diameter and thickness to SWAN every exchange; SWAN dissipates waves on them (`VEGETATION 3`, section 3). The coupler's KN floor drops from 0.05 to 0.0015 m. | **on with the canopy route**: the same canopy must take wave energy and current momentum; without it SWAN would see a bare bed with KN 0.3 m. `swan.in` still needs `INPGRID NPLANTS` (no `READINP`) or SWAN ignores the coupled density (`case_design.md`) |
-| `VEG_STREAMING` | wave-induced streaming force inside the canopy (Luhar et al. 2010). | keep off: second-order, untested here, and the engine's `roms-restart-wec` tests did not cover it |
+| `VEG_STREAMING` | wave-induced streaming force inside the canopy (Luhar et al. 2010). | **on in the A15 canopy cases since 2026-11-03** (author): with the coawst-cloud fix `roms-veg-streaming-fixes` (the stock force replaced the bottom streaming, was not normalized, had no ghost points, and its restart variable lacked the record dimension); with `BOTTOM_STREAMING` the lagoon set-up +95 %, crest transport +32 %, stable at DT 6 s. Acts only together with `BOTTOM_STREAMING` |
 | `VEG_HMIXING` | see section 1.2. | **to test** with patchy canopies |
 | `MARSH_*`, `VEG_BIOMASS`/`SAV_BIOMASS`, `ESTUARYBGC`, `SPECTRAL_LIGHT` | marsh dynamics, biomass growth, estuarine biogeochemistry. | not for us |
 
@@ -447,7 +447,7 @@ sparse n 1 m-2 and dense n 4 m-2, D 0.5 m, h 0.4 m, Cd 1 in both models.
 | `DISSIP_BREAK_DIR` | breaking force from x and y dissipation components instead of the scalar times the mean direction. | **do not use with SWAN**: only the WW3 coupler fills `Dissip_breakx/y`; with SWAN the arrays are never set (`Master/mct_roms_swan.h` fills `Dissip_break` only). A pity for cases with crossing wave trains; the mean direction `Dwave` is what we have |
 | `WEC_ALPHA` (`ocean.in`, 0) | fraction of the breaking dissipation routed to the roller instead of the direct force. | 0 (no roller) |
 | `ROLLER_SVENDSEN`, `ROLLER_MONO`, `ROLLER_RENIERS` | surface roller: part of the breaking energy is stored in a roller and released a few wavelengths shoreward, shifting the set-up and the longshore current onshore (Reniers is the suggested one). | **sensitivity** for the reef flat: on a 50-100 m wide reef surf zone the roller lag moves where the momentum lands (onto the reef flat rather than the forereef), which changes the cross-reef set-up gradient and the crest jet. No run yet; needs `WEC_ALPHA` > 0 and the roller restart fields were not part of the restart tests |
-| `BOTTOM_STREAMING` (+ `_YU` default, `_XU_BOWEN`), `SURFACE_STREAMING` | wave-boundary-layer streaming force near the bed (onshore), and surface streaming. | keep off: a sediment-transport term; its near-bed onshore push is small next to the breaking force on a reef, and it adds bottom-layer forcing where the stress cap already binds |
+| `BOTTOM_STREAMING` (+ `_YU` default, `_XU_BOWEN`), `SURFACE_STREAMING` | wave-boundary-layer streaming force near the bed (onshore), and surface streaming. | **on in all A15 cases since 2026-11-03** (author): on the canopy reef bottom friction takes 34 % of the wave dissipation (crest and top of the fore reef, Madsen f_w 0.25-0.3), comparable to breaking (40 %); the force carries that momentum: set-up +57 %, crest transport +22 %, stable at DT 6 s with `BSTRESS_IMPLICIT` (an explicit-drag case blew up) |
 | `WAVE_MIXING` | extra vertical viscosity from breaking (Uchiyama et al. 2010), independent of GLS. | keep off; `TKE_WAVEDISS` (section 1.6) does the same job inside the closure |
 | `BULK_STOKES` / `SPECTRUM_STOKES` | Stokes drift profile from bulk Hs, T, L, or summed over SWAN's frequency bins (Liu et al. 2021). `SPECTRUM_STOKES` is automatic with SWAN unless `BULK_STOKES` is defined. | **`SPECTRUM_STOKES`** (decided 2026-10-21): the bulk profile from the peak period is too deep for a broad spectrum. Cost 15x the bulk kernel before the engine's `roms-wec-stokes-fast` patch, about 5x after; the `roms-wec-stokes-fixes` patch is required (the stock u-point loop was wrong) |
 | `UV_KIRBY` / `UV_BANIHASHEMI` / `UV_CONST` / none | the current sent to SWAN for refraction and Doppler shift: depth weighted over the wave's own depth (Kirby and Chen 1989), per wave number (Banihashemi et al. 2017), zero, or the surface current. | **`UV_KIRBY`**. `UV_BANIHASHEMI` (one current per frequency bin, for strongly sheared currents such as the undertow under the crest jet) was **tested 2026-11-03** on A15: within 0.5 % of `UV_KIRBY` (fore-reef shear ratio +5 %), wall time +5 %: no practical difference. It replaces `UV_KIRBY` (`-UV_KIRBY +UV_BANIHASHEMI`); defining both does not compile. **Note for later:** consider switching to it, and check whether it is needed on every new domain: it matters where a strongly sheared current (an ebb jet or plume over a weaker or opposing lower layer, a wind-driven surface current over a return flow) meets a spectrum spanning kD < 1 and kD > 1 (deeper water, short wind waves), not on a shallow reef flat where every bin sees the depth mean; test it as one member against `UV_KIRBY` |
@@ -952,13 +952,15 @@ current case files, "change" marks a recommended edit.
 #define TS_FIXED                                 base case only; off in _strat/_therm
 /* waves */
 #define WEC_VF  WDISS_WAVEMOD  UV_KIRBY          (as now; SPECTRUM_STOKES is automatic)
-#undef  BOTTOM_STREAMING  SURFACE_STREAMING  WAVE_MIXING  DISSIP_BREAK_DIR
+#define BOTTOM_STREAMING                         (since 2026-11-03)
+#undef  SURFACE_STREAMING  WAVE_MIXING  DISSIP_BREAK_DIR
 /* bottom */
 #define SSW_BBL  SSW_CALC_ZNOT  SSW_LOGINT  SSW_LOGINT_WBL   (as now)
 /* LIMIT_BSTRESS off as now; +BSTRESS_IMPLICIT -SPLINES_VVISC for crest-jet members */
 /* canopy (_veg cases) */
 #define VEGETATION  VEG_DRAG  VEG_TURB  VEG_SWAN_COUPLING    (as now)
-#undef  VEG_FLEX  VEG_STREAMING
+#define VEG_STREAMING                            (since 2026-11-03)
+#undef  VEG_FLEX
 /* +VEG_DRAG_IMPLICIT for patchy or dense canopies (build arg) */
 /* turbulence */
 #define GLS_MIXING  RI_SPLINES  KANTHA_CLAYSON  N2S2_HORAVG  (off with VEG_TURB; as now)
