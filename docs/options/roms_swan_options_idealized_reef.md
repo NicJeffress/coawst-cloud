@@ -63,7 +63,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Barotropic kernel | LF-AM3 (default) or `STEP2D_FB_AB3_AM4` (as accurate, 2.4x cheaper 2-D kernel; the realistic case's default) | 2.3 |
 | Time step | DT 6 s (3 s with patchy canopies or N^2 >= 3e-4), NDTFAST 24; barotropic Courant 0.8-0.85; shallower and faster crests need 4 s or 2 s | 2.2 |
 | Vertical grid | N 10, Vtransform 2, Vstretching 4, theta_s 3, theta_b 2, Tcline 20 | 2.1 |
-| SWAN physics | `GEN3` (no wind: inert), `BREAKING CON 1.0 0.73`, `FRICTION MADSEN` (KN from ROMS), `TRIAD` (DCTA), `OFF QUAD`; `VEGETATION 3` with the canopy | 3 |
+| SWAN physics | `GEN3` (no wind: inert), **`BREAKING BKD 1.0 0.54 7.59 -8.06 8.09` (A15 default since 2026-11-03, author; was CON 1.0 0.73)**, `FRICTION MADSEN` (KN from ROMS), `TRIAD` (DCTA), `OFF QUAD`; `VEGETATION 3` with the canopy | 3 |
 | SWAN numerics | nonstationary, `PROP BSBT`, dt 120 s, one iteration per step, default limiter; `CTHETA` tested 2026-11-03: not needed (within 0.7 %) | 4 |
 | Coupling | MCT, same grid, 600 s exchange; 300 s **sensitivity** | 5 |
 | Build | gfortran `-O3 -march=x86-64-v3 -g`, no `-ffast-math`; SWAN `-O3`; `OUT_NETCDF4 +DEFLATE`; MPI only | 6 |
@@ -994,7 +994,7 @@ NAUTICAL`; `COORDINATES CARTESIAN REPEATING`; `CGRID CURVILINEAR 202 110
 ... CIRCLE 72 0.04 1.0 20`; `INPGRID CURRENT/WLEV/FRIC ... NONSTAT`, and
 `INPGRID NPLANTS` in the canopy cases; `GEN3`; `FRICTION MADSEN 0.3`
 (lower the 0.3 to the smallest intended KN when the roughness field has
-smooth patches); `OFF QUAD`; `BREAKING CON 1.0 0.73`; `TRIAD`; `PROP BSBT`;
+smooth patches); `OFF QUAD`; `BREAKING BKD 1.0 0.54 7.59 -8.06 8.09` (since 2026-11-03; was `CON 1.0 0.73`); `TRIAD`; `PROP BSBT`;
 `VEGETATION 3 0.4 0.5 1 1` with the canopy; `COMPUTE NONSTATIONARY ...
 120 SEC`; `RESTART ... FREE 1 HR`; add `OFF BNDCHK` if boundary warnings
 ever accumulate.
