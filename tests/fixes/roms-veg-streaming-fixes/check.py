@@ -93,4 +93,27 @@ except (FileNotFoundError, OSError):
 ok &= good
 print(f"   unchanged runs without streaming: {'bit-identical' if good else 'different or missing'}    "
       f"{'PASS' if good else 'FAIL'}")
+
+
+def restart(side):
+    """Restart records at 20 min of the straight and restarted runs: None if missing."""
+    d = out / f"restart-{side}"
+    try:
+        with Dataset(d / "straight/output/ocean_rst.nc") as a, Dataset(d / "part2/output/ocean_rst.nc") as b:
+            ta, tb = list(np.asarray(a["ocean_time"][:])), list(np.asarray(b["ocean_time"][:]))
+            if 1200.0 not in ta or 1200.0 not in tb:
+                return None
+            i, j = ta.index(1200.0), tb.index(1200.0)
+            return max(int((np.ma.filled(a[v][i], 0.0) + 0.0 != np.ma.filled(b[v][j], 0.0) + 0.0).sum())
+                       for v in ("u", "v", "ubar", "vbar", "zeta"))
+    except (FileNotFoundError, OSError, IndexError, KeyError):
+        return None
+
+
+rb, ra = restart("before"), restart("after")
+print(f"   restart   before: {'no complete restart pair (as expected)' if rb is None else f'{rb} points differ'}; "
+      f"after: {'missing' if ra is None else f'{ra} points differ'}")
+good = rb is None and ra == 0
+ok &= good
+print(f"   restart   before fails, after bit-identical    {'PASS' if good else 'FAIL'}")
 sys.exit(0 if ok else 1)

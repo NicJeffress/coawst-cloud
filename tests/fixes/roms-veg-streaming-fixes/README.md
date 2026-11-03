@@ -19,7 +19,10 @@ carry the wave momentum that bottom friction and the plants take out.
      thickness, summed) differs from (Dissip_fric + Dissip_veg) k cos(theta)/sigma,
      rebuilt from the history file, by more than 10 % (rms over the wave points);
    - *fixed*: after, by less than 1 %;
-   - *unchanged*: the builds without streaming write bit-identical history.
+   - *unchanged*: the builds without streaming write bit-identical history;
+   - *restart*: with both options and a restart record every 2 min, 20 min
+     straight against 10 + 10 min (tests/tools/restart_inside.sh): before, the
+     restart file cannot be written; after, the restarted run is bit-identical.
 
 ## Running it
 
@@ -29,5 +32,6 @@ PYTHON=~/venv/bin/python tests/fixes/roms-veg-streaming-fixes/run.sh /tmp/vegstr
 
 About 5 min per build (four builds) and 2-4 min per run on a 4-vCPU machine.
 Result of 2026-11-03: PASS (before: ratio 0.293, misfit 0.71; after: ratio
-1.000, misfit 3.5e-4; without streaming bit-identical). The history file
+1.000, misfit 3.5e-4; without streaming bit-identical; restart: before every run
+stopped at its fourth restart record, after bit-identical). The history file
 holds `Dwave` in degrees; ROMS uses radians.

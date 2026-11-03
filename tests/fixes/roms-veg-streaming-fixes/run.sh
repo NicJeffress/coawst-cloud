@@ -19,6 +19,10 @@
 #             (Dissip_fric + Dissip_veg) k/sigma by more than 10 % (rms over the wave points)
 #   fixed     after it, by less than 1 % (the inputs are SWAN's float32 output)
 #   unchanged plain-before and plain-after: identical history
+#   restart   with both options, a run writing restart records every 2 min, 20 min
+#             straight against 10 + 10 min (tests/tools/restart_inside.sh): before the
+#             patch writing the restart file fails; after it the restarted run is
+#             bit-identical (u, v, ubar, vbar, zeta in the double-precision records)
 # STAGES (default "build run check"). Needs Docker and Python with numpy and netCDF4 (PYTHON).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -55,6 +59,12 @@ if has run; then
             "$tools/run_case.sh" coawst-test:vegstream-$side "$OUT" stream-$side Reef_Ideal_A15_veg $TI $TJ $NWAV 12 || true
         rm -rf "$OUT/plain-$side"
         OUTDT=2 "$tools/run_case.sh" coawst-test:vegplain-$side "$OUT" plain-$side Reef_Ideal_A15_veg $TI $TJ $NWAV 10 || true
+        d=$OUT/restart-$side; rm -rf "$d"; mkdir -p "$d"; cp "$tools/"{restart_inside,case_inside}.sh "$d/"
+        docker run --rm --user "$(id -u):$(id -g)" -v "$d:/work" -w /work -e OUTDT=2 \
+            -e OCEANSED='s/^( *NRST *== *)[0-9]+/\120/' \
+            coawst-test:vegstream-$side bash /work/restart_inside.sh Reef_Ideal_A15_veg 20 10 $TI $TJ $NWAV \
+            > "$d/runner.log" 2>&1 || true
+        echo "   restart-$side: $(grep -E '^(straight|part1|part2):' "$d/runner.log" | paste -sd' ')"
     done
 fi
 if has check; then

@@ -5,8 +5,8 @@
 | **Type** | fix |
 | **Changes results?** | only with `VEG_STREAMING` (the canopy streaming force) and, through it, `BOTTOM_STREAMING`; builds without `VEG_STREAMING` are unchanged (bottom-streaming diagnostics aside, below) |
 | **Default** | on (the code changes are inside `VEG_STREAMING` and `BOTTOM_STREAMING`) |
-| **Files** | `ROMS/Nonlinear/Vegetation/vegetation_stream.F`, `ROMS/Nonlinear/WEC/wec_streaming.F`, `Master/mct_roms_swan.h` |
-| **Evidence** | idealized reef with a canopy, waves and both options: the depth-integrated streaming force against the wave momentum lost to bottom friction and the plants, (Dissip_fric + Dissip_veg) k/sigma: before, 0.29 of it (rms misfit 0.71); after, 1.000 (misfit 3.5e-4); without the options, bit-identical output |
+| **Files** | `ROMS/Nonlinear/Vegetation/vegetation_stream.F`, `ROMS/Nonlinear/WEC/wec_streaming.F`, `Master/mct_roms_swan.h`, `ROMS/Utility/def_rst.F` |
+| **Evidence** | idealized reef with a canopy, waves and both options: the depth-integrated streaming force against the wave momentum lost to bottom friction and the plants, (Dissip_fric + Dissip_veg) k/sigma: before, 0.29 of it (rms misfit 0.71); after, 1.000 (misfit 3.5e-4); without the options, bit-identical output; with them, restarts now work (before, a run stopped at its fourth restart record) and are bit-identical |
 | **Test** | [`tests/fixes/roms-veg-streaming-fixes/run.sh`](../../../../tests/fixes/roms-veg-streaming-fixes/run.sh), see its [README](../../../../tests/fixes/roms-veg-streaming-fixes/README.md) |
 | **Upstream** | not reported yet |
 
@@ -41,6 +41,15 @@ was lost whenever it was on.
    neighbouring point; at every tile edge and at a periodic seam the face
    force was averaged with a point that was never set.
 
+5. **The restart file could not hold it.** With `VEG_STREAMING`, `Dissip_veg` (and
+   the spectral drag coefficient) are written to the restart file, defined with
+   the 2-D dimension list `t2dgrd`. Under `PERFECT_RESTART` that list holds the
+   time-level dimension (`three`) before the record dimension, so its first three
+   entries, which `nvd3` takes, are (xi, eta, three): the variable had no record
+   dimension, the writes went into the time levels, and the fourth record failed
+   (`NetCDF error -40`, the run stopped). The same trap as in the first version of
+   `roms-restart-roller`.
+
 Also: the bottom-streaming 2-D term `rubst2d` carried an extra layer
 thickness (`cff*cff1`, cff already being the thickness-weighted force), so
 its units were m⁵/s² instead of m⁴/s². In LF-AM3 it cancels (it enters the
@@ -60,6 +69,8 @@ that does not exist (a compile error in an unused combination).
   height is used (`VEG_FLEX` bending is not applied).
 - `wec_streaming.F`: the canopy force is added to the bottom force;
   `rubst2d`, `rvbst2d` without the extra thickness.
+- `def_rst.F`: under `PERFECT_RESTART` the vegetation variables are defined with
+  `sr2dgrd` (xi, eta, record).
 - `mct_roms_swan.h`: `VEG(ng)%Dissip_veg` is exchanged across tiles after the
   import (with the other wave fields); the `SWAN_IUNIFORM` lines name it.
 
@@ -81,6 +92,10 @@ Dissip_fric 1.7 W/m², Dissip_veg 4.6 W/m² at that time):
 
 The remaining misfit is the float32 history used to rebuild the expected
 value. Runs without the options: bit-identical history before and after.
+Restart with both options (restart record every 2 min, 20 min straight against
+10 + 10 min): before, every run stopped at its fourth restart record; after, the
+restarted run is bit-identical (u, v, ubar, vbar, zeta in the double-precision
+records; this series includes `roms-ts-fixed-density`).
 
 **Stability.** Later in the same run (20 min, the waves near full height) the
 test case blows up with the fixed force: a two-step oscillation in the bottom

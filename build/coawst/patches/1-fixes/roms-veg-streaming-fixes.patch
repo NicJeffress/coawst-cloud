@@ -251,3 +251,25 @@
  #  ifdef DIAGNOSTICS_UV
              DiaRV(i,j,k,nrhs,M3bstm)=cff*om_v(i,j)*on_v(i,j)
  #  endif
+--- a/ROMS/Utility/def_rst.F
++++ b/ROMS/Utility/def_rst.F
+@@ -1922,8 +1922,19 @@
+ !  Define the submerged aquatic vegetation model variables.
+ !-----------------------------------------------------------------------
+ !
++# ifdef PERFECT_RESTART
++!
++!  roms-veg-streaming-fixes: the 2-D vegetation fields (Dissip_veg, ...)
++!  are written as (xi, eta, record); t2dgrd holds the time-level
++!  dimension before the record here, so its first three entries lack the
++!  record and writing the second record failed.
++!
++        CALL vegetation_def_nf90 (ng, model, Ldefine, Hout, RST,        &
++     &                            sapgrd, sr2dgrd)
++# else
+         CALL vegetation_def_nf90 (ng, model, Ldefine, Hout, RST,        &
+      &                            sapgrd, t2dgrd)
++# endif
+         IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
+ #endif
+ !
