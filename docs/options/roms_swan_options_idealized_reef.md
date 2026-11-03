@@ -55,7 +55,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Vertical mixing | GLS k-epsilon, `KANTHA_CLAYSON`, `RI_SPLINES`, `N2S2_HORAVG` (off with `VEG_TURB`) | 1.6 |
 | Surface turbulence from breaking | `TKE_WAVEDISS` + `ZOS_HSIG` **to test** (currently neither: breaking injects no TKE) | 1.6 |
 | Bottom stress | `SSW_BBL` + `SSW_CALC_ZNOT` + `SSW_LOGINT_WBL`; explicit and uncapped as now (converged in DT on A15); `LIMIT_BSTRESS` only if stronger forcing destabilizes it; `BSTRESS_IMPLICIT -SPLINES_VVISC` when the crest jet is the target (and on shallower, faster crests) | 1.5 |
-| Roughness | `grain_diameter` in the initial file (0.12 m = z0 0.01 m) or canopy drag, never both; SWAN gets KN = 30 z0 from ROMS | 1.5, 5 |
+| Roughness | `grain_diameter` in the initial file (0.12 m = z0 0.01 m) and/or canopy drag: usually one or the other, but both is allowed (a rough bed under a canopy; the A15 canopy cases have both); SWAN gets KN = 30 z0 from ROMS | 1.5, 5 |
 | Canopy | `VEGETATION` + `VEG_DRAG` + `VEG_TURB` (+ `VEG_SWAN_COUPLING`, SWAN `VEGETATION 3`); explicit drag, `VEG_DRAG_IMPLICIT` for patchy or dense canopies; `VEG_FLEX` off | 1.7 |
 | Wave forcing | `WEC_VF`, `WDISS_WAVEMOD`, `SPECTRUM_STOKES`, `UV_KIRBY`; rollers and streaming off; `DISSIP_BREAK_DIR` never with SWAN | 1.8 |
 | Surface fluxes | analytic heat flux with SST feedback now; `BULK_FLUXES` + `SOLAR_SOURCE` + `WIND_MINUS_CURRENT` when winds arrive | 1.9 |
@@ -64,7 +64,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Time step | DT 6 s (3 s with patchy canopies or N^2 >= 3e-4), NDTFAST 24; barotropic Courant 0.8-0.85; shallower and faster crests need 4 s or 2 s | 2.2 |
 | Vertical grid | N 10, Vtransform 2, Vstretching 4, theta_s 3, theta_b 2, Tcline 20 | 2.1 |
 | SWAN physics | `GEN3` (no wind: inert), `BREAKING CON 1.0 0.73`, `FRICTION MADSEN` (KN from ROMS), `TRIAD` (DCTA), `OFF QUAD`; `VEGETATION 3` with the canopy | 3 |
-| SWAN numerics | nonstationary, `PROP BSBT`, dt 120 s, one iteration per step, default limiter; `CTHETA` **to test** | 4 |
+| SWAN numerics | nonstationary, `PROP BSBT`, dt 120 s, one iteration per step, default limiter; `CTHETA` tested 2026-11-03: not needed (within 0.7 %) | 4 |
 | Coupling | MCT, same grid, 600 s exchange; 300 s **sensitivity** | 5 |
 | Build | gfortran `-O3 -march=x86-64-v3 -g`, no `-ffast-math`; SWAN `-O3`; `OUT_NETCDF4 +DEFLATE`; MPI only | 6 |
 
@@ -357,7 +357,7 @@ implicit stress should also keep the crest-smoothing rule (crest >= 0.4 m,
 rx0 <= 0.2) that made it run. Either way, state which stress a published
 run used: the two differ measurably on the crest.
 
-**Roughness, two routes, never mixed** (decided 2026-10-20): (a) bottom
+**Roughness, two routes, usually one or the other** (2026-10-20; softened 2026-11-03 by the author: a suggestion, not a rule, since a coral reef can be a rough bed and a canopy at once): (a) bottom
 roughness z0 (= d50/12 in the initial file), also sent to SWAN as the
 Nikuradse roughness KN = 30 z0, floored at 0.05 m by the coupler
 (`Master/mct_roms_swan.h` lines 1065-1071) and used by SWAN's
@@ -447,7 +447,7 @@ sparse n 1 m-2 and dense n 4 m-2, D 0.5 m, h 0.4 m, Cd 1 in both models.
 | `BOTTOM_STREAMING` (+ `_YU` default, `_XU_BOWEN`), `SURFACE_STREAMING` | wave-boundary-layer streaming force near the bed (onshore), and surface streaming. | keep off: a sediment-transport term; its near-bed onshore push is small next to the breaking force on a reef, and it adds bottom-layer forcing where the stress cap already binds |
 | `WAVE_MIXING` | extra vertical viscosity from breaking (Uchiyama et al. 2010), independent of GLS. | keep off; `TKE_WAVEDISS` (section 1.6) does the same job inside the closure |
 | `BULK_STOKES` / `SPECTRUM_STOKES` | Stokes drift profile from bulk Hs, T, L, or summed over SWAN's frequency bins (Liu et al. 2021). `SPECTRUM_STOKES` is automatic with SWAN unless `BULK_STOKES` is defined. | **`SPECTRUM_STOKES`** (decided 2026-10-21): the bulk profile from the peak period is too deep for a broad spectrum. Cost 15x the bulk kernel before the engine's `roms-wec-stokes-fast` patch, about 5x after; the `roms-wec-stokes-fixes` patch is required (the stock u-point loop was wrong) |
-| `UV_KIRBY` / `UV_BANIHASHEMI` / `UV_CONST` / none | the current sent to SWAN for refraction and Doppler shift: depth weighted over the wave's own depth (Kirby and Chen 1989), per wave number (Banihashemi et al. 2017), zero, or the surface current. | **`UV_KIRBY`**. `UV_BANIHASHEMI` is a **to test** candidate where the current is strongly sheared (undertow under the crest jet): it sends one current per frequency bin and SWAN uses it per bin; cost: one depth integral per bin per exchange |
+| `UV_KIRBY` / `UV_BANIHASHEMI` / `UV_CONST` / none | the current sent to SWAN for refraction and Doppler shift: depth weighted over the wave's own depth (Kirby and Chen 1989), per wave number (Banihashemi et al. 2017), zero, or the surface current. | **`UV_KIRBY`**. `UV_BANIHASHEMI` (one current per frequency bin, for strongly sheared currents such as the undertow under the crest jet) was **tested 2026-11-03** on A15: within 0.5 % of `UV_KIRBY` (fore-reef shear ratio +5 %), wall time +5 %: no practical difference. It replaces `UV_KIRBY` (`-UV_KIRBY +UV_BANIHASHEMI`); defining both does not compile |
 | `ZETA_CONST`, `SST_CONST` | send zero sea level or no SST. | off |
 | `WEC_BREAK_UNIFORM` (engine patch) | breaking force spread evenly over depth instead of the cosh profile (ratio top/bottom 188 on A15's crest). | **sensitivity** only: it changes surface currents by up to 14 cm/s on A15; it did not cure the realistic case's crest blow-up |
 | `FLOATS_STOKES`, `FLOATS_WINDS` | add Stokes drift (and 1 % of the wind) to online float velocities. | only with `FLOATS` (section 1.11) |
@@ -771,7 +771,7 @@ splitting and how far the solution lags the forcing.
 | `NUM STOPC [dabs] [drel] [curvat] [npnts]` | defaults 0.005 m, 0.01, 0.005, 99.5 % | only meaningful with `mxitns > 1` |
 | `NUM DIRIMPL [cdd]` | default 0.5 (half central, half upwind in direction) | ERRCHK recommends `cdd = 1` (full upwind) where currents are present; 0.5 is more accurate but can produce spurious directional oscillations near strong depth or current gradients. **To test: `NUM DIRIMPL 1`** on grids with strong currents and steep forereefs (reef passes with 1-2 m/s jets); on A15 keep 0.5 unless noise appears in `dir` near the crest |
 | `NUM SIGIMPL [css]` | default 0.5, implicit SIP solver | same reasoning for the frequency shift: `css = 1` **to test** with strong pass currents |
-| `NUM CTHETA [cfl]` | off unless given (0.9 when given) | limits the refraction turning rate per step: the technical manual (section 3.8) describes exactly our situation, refraction on coarse bathymetry gradients in nonstationary runs producing spurious directional turning. **To test: `NUM CTHETA 0.9`** (steep forereef, reef passes); cost nil |
+| `NUM CTHETA [cfl]` | off unless given (0.9 when given) | limits the refraction turning rate per step: the technical manual (section 3.8) describes exactly our situation, refraction on coarse bathymetry gradients in nonstationary runs producing spurious directional turning. **Tested on A15 2026-11-03**: `NUM CTHETA 0.9` within 0.7 % of the default, `CSIGMA 0.9` never acts, `DIRIMPL 1` within 1 %: no limiter needed on A15 (untested at a pass with strong currents); cost nil |
 | `NUM CSIGMA [cfl]` | off unless given | the same limiter for the frequency shift on strong current gradients; pair it with `CTHETA` in that test |
 | `NUM STAT [mxitst] [alfa]` | 50, 0 | stationary only; `alfa` is zeroed by `MODE NONSTAT` |
 | `RESTART 'output/swan_rst.dat' FREE 1 HR` | yes | the engine's `swan-exact-restart` makes it exact; keep |
@@ -816,7 +816,7 @@ fields every step while its own depth and sea level evolve.
 | `MCT_INTERP_OC2WV` (+ SCRIP weights) | interpolation between different ocean and wave grids. | off: SWAN runs on the ROMS grid (decided 2026-10-20). A15 originally had a separate SWAN grid; the port made them the same. Interpolation across the periodic seam is untested, and the same grid removes one source of mismatch between the breaking force and the depth it was computed on |
 | `NnodesOCN`, `NnodesWAV` | processes per model; their sum is the MPI size. | A15 10 + 6 on 16 vCPUs (benchmarks in `case_design.md`, 2026-10-21): the split where ROMS stops waiting for SWAN once SWAN is built at `-O3` |
 | `TI_OCN2WAV`, `TI_WAV2OCN` | exchange intervals; must be integer multiples of SWAN's `deltc`. | 600 s (every run so far). **Sensitivity: 300 s.** The argument for shorter: on a 0.5 m crest a 0.15 m tide changes the breaking depth by 30 % over a tidal cycle, and ROMS's wave forcing is frozen for 600 s at a time (the tide moves 13 mm in 600 s, which is small); the wave set-up and the crest jet respond within minutes to the wave forcing, but the forcing itself only changes with the tide, so 600 s should be adequate. The cost of 300 s is one more MCT exchange and SWAN output computation per 300 s, a few percent. Worth one A15 member to confirm the response is insensitive |
-| `UV_KIRBY` / `UV_BANIHASHEMI` / `UV_CONST` / none | which current SWAN receives (section 1.8). | `UV_KIRBY`; `UV_BANIHASHEMI` to test |
+| `UV_KIRBY` / `UV_BANIHASHEMI` / `UV_CONST` / none | which current SWAN receives (section 1.8). | `UV_KIRBY`; `UV_BANIHASHEMI` tested 2026-11-03: within 0.5 % |
 | `ZETA_CONST` | SWAN gets no sea level. | off |
 | `VEG_SWAN_COUPLING` | plant fields to SWAN (section 1.7). | on with the canopy |
 | `SWAN_SINGLESPEC` | one spectral output file per run instead of per process; breaks `SPECOUT` with several SWAN processes. | off (the engine removes it from every header) |
@@ -1025,7 +1025,7 @@ measured rate of about $0.08 per simulated day on Spot machines.
 | 10 | Stability functions and `GLS_Kmin` | `CANUTO_A`; `GLS_Kmin` 1e-8 (A15 `_strat`, 24 h) | low priority: differences between closures are usually below those from resolution | sensitivity numbers for the methods section |
 | 11 | Spectral resolution | `msc` 34 on A15 with `TRIAD` (and `CIRCLE 72` on any grid still at 36) | cost 1.5-2x on SWAN; only after 3 and 4 | whether the wave field over the forereef is resolution dependent |
 | 12 | Rollers | `ROLLER_RENIERS` with `WEC_ALPHA` 0.5 (A15, 24 h, after a restart check) | shifts the breaking momentum onto the reef flat; untested restart fields | a sensitivity number, not a default |
-| 13 | Current sent to SWAN | `+UV_BANIHASHEMI` (A15, 24 h) | sheared undertow under the crest jet | sensitivity number |
+| 13 | Current sent to SWAN | `+UV_BANIHASHEMI` (A15, 24 h) | sheared undertow under the crest jet | done 2026-11-03: within 0.5 %, keep `UV_KIRBY` |
 
 Not worth testing (the reasoning is in the sections): `UV_U3ADV_SPLIT`
 (blew up), `OMEGA_IMPLICIT` (hides blow-ups), `PJ_GRADP*` (lost the rest
