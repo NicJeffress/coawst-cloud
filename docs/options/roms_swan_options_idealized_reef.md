@@ -61,7 +61,7 @@ variants). Details and reasoning follow in the numbered sections.
 | Surface fluxes | analytic heat flux with SST feedback now; `BULK_FLUXES` + `SOLAR_SOURCE` + `WIND_MINUS_CURRENT` when winds arrive | 1.9 |
 | Open boundary | periodic E-W; north: `Che`/`Shc`/`RadNud` + interior nudging band, TKE `Gra`, Stokes `Gra` | 1.10 |
 | Barotropic kernel | LF-AM3 (default) or `STEP2D_FB_AB3_AM4` (as accurate, 2.4x cheaper 2-D kernel; the realistic case's default) | 2.3 |
-| Time step | DT 6 s (3 s with patchy canopies or N^2 >= 3e-4), NDTFAST 24; barotropic Courant 0.8-0.85; shallower and faster crests need 4 s or 2 s | 2.2 |
+| Time step | **A15: DT 3 s, NDTFAST 12 since 2026-11-04** (the author: stay below the CFL limits; with streaming at N 15, DT 6 s had vertical Courant above 1 on 90-96 % of steps on density 1, and the bare reef blows up at DT 6 and 4 s); before: DT 6 s, NDTFAST 24; barotropic Courant 0.8-0.85; shallower and faster crests need 4 s or 2 s | 2.2 |
 | Vertical grid | N 15 (since 2026-11-03; was 10), Vtransform 2, Vstretching 4, theta_s 3, theta_b 2, Tcline 20 | 2.1 |
 | SWAN physics | `GEN3` (no wind: inert), **`BREAKING BKD 1.0 0.54 7.59 -8.06 8.09` (A15 default since 2026-11-03, author; was CON 1.0 0.73)**, `FRICTION MADSEN` (KN from ROMS), `TRIAD` (DCTA), `OFF QUAD`; `VEGETATION 3` with the canopy | 3 |
 | SWAN numerics | nonstationary, `PROP BSBT`, dt 120 s, one iteration per step, default limiter; `CTHETA` tested 2026-11-03: not needed (within 0.7 %) | 4 |
