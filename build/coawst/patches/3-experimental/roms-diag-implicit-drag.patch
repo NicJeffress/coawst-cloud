@@ -1,0 +1,254 @@
+--- a/ROMS/Nonlinear/step3d_uv.F	2026-11-04 02:32:34.395822801 +0000
++++ b/ROMS/Nonlinear/step3d_uv.F	2026-11-04 02:32:34.447199952 +0000
+@@ -343,6 +343,7 @@
+ # ifdef DIAGNOSTICS_UV
+       real(r8), dimension(IminS:ImaxS,0:N(ng)) :: wrk
+       real(r8), dimension(IminS:ImaxS,1:NDM2d-1) :: Dwrk
++      real(r8) :: fdiag
+ # endif
+ 
+ # include "set_bounds.h"
+@@ -524,6 +525,11 @@
+ #  ifdef DIAGNOSTICS_UV
+           DiaU3wrk(i,j,N(ng),M3vvis)=DiaU3wrk(i,j,N(ng),M3vvis)+        &
+      &                               u(i,j,N(ng),nnew)-wrk(i,N(ng))
++#   if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++          fdiag=dt(ng)*VEG(ng)%cu_veg(i,j,N(ng))*u(i,j,N(ng),nnew)*oHz(i,N(ng))
++          DiaU3wrk(i,j,N(ng),M3fveg)=DiaU3wrk(i,j,N(ng),M3fveg)-fdiag
++          DiaU3wrk(i,j,N(ng),M3vvis)=DiaU3wrk(i,j,N(ng),M3vvis)+fdiag
++#   endif
+ #  endif
+         END DO
+         DO k=N(ng)-1,1,-1
+@@ -536,6 +542,11 @@
+ #  ifdef DIAGNOSTICS_UV
+             DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)+              &
+      &                             u(i,j,k,nnew)-wrk(i,k)
++#   if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fdiag=dt(ng)*VEG(ng)%cu_veg(i,j,k)*u(i,j,k,nnew)*oHz(i,k)
++            DiaU3wrk(i,j,k,M3fveg)=DiaU3wrk(i,j,k,M3fveg)-fdiag
++            DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)+fdiag
++#   endif
+ #  endif
+           END DO
+         END DO
+@@ -652,6 +663,9 @@
+ # ifdef DIAGNOSTICS_UV
+           Dwrk(i,M2pgrd)=DiaU3wrk(i,j,1,M3pgrd)*Hzk(i,1)
+           Dwrk(i,M2bstr)=DiaU3wrk(i,j,1,M3vvis)*Hzk(i,1)
++#  if defined VEGETATION && defined VEG_DRAG
++          Dwrk(i,M2fveg)=DiaU3wrk(i,j,1,M3fveg)*Hzk(i,1)
++#  endif
+ #  ifdef UV_COR
+           Dwrk(i,M2fcor)=DiaU3wrk(i,j,1,M3fcor)*Hzk(i,1)
+ #  endif
+@@ -694,6 +708,9 @@
+      &                     DiaU3wrk(i,j,k,M3pgrd)*Hzk(i,k)
+             Dwrk(i,M2bstr)=Dwrk(i,M2bstr)+                              &
+      &                     DiaU3wrk(i,j,k,M3vvis)*Hzk(i,k)
++#  if defined VEGETATION && defined VEG_DRAG
++            Dwrk(i,M2fveg)=Dwrk(i,M2fveg)+DiaU3wrk(i,j,k,M3fveg)*Hzk(i,k)
++#  endif
+ #  ifdef UV_COR
+             Dwrk(i,M2fcor)=Dwrk(i,M2fcor)+                              &
+      &                     DiaU3wrk(i,j,k,M3fcor)*Hzk(i,k)
+@@ -783,6 +800,9 @@
+      &                             Dwrk(i,M2pgrd)
+             DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)-              &
+      &                             Dwrk(i,M2bstr)
++#  if defined VEGETATION && defined VEG_DRAG
++            DiaU3wrk(i,j,k,M3fveg)=DiaU3wrk(i,j,k,M3fveg)-Dwrk(i,M2fveg)
++#  endif
+ #  ifdef UV_COR
+             DiaU3wrk(i,j,k,M3fcor)=DiaU3wrk(i,j,k,M3fcor)-              &
+      &                             Dwrk(i,M2fcor)
+@@ -1016,6 +1036,11 @@
+ #  ifdef DIAGNOSTICS_UV
+             DiaV3wrk(i,j,N(ng),M3vvis)=DiaV3wrk(i,j,N(ng),M3vvis)+      &
+      &                                 v(i,j,N(ng),nnew)-wrk(i,N(ng))
++#   if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++            fdiag=dt(ng)*VEG(ng)%cv_veg(i,j,N(ng))*v(i,j,N(ng),nnew)*oHz(i,N(ng))
++            DiaV3wrk(i,j,N(ng),M3fveg)=DiaV3wrk(i,j,N(ng),M3fveg)-fdiag
++            DiaV3wrk(i,j,N(ng),M3vvis)=DiaV3wrk(i,j,N(ng),M3vvis)+fdiag
++#   endif
+ #  endif
+           END DO
+           DO k=N(ng)-1,1,-1
+@@ -1028,6 +1053,11 @@
+ #  ifdef DIAGNOSTICS_UV
+               DiaV3wrk(i,j,k,M3vvis)=DiaV3wrk(i,j,k,M3vvis)+            &
+      &                               v(i,j,k,nnew)-wrk(i,k)
++#   if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++              fdiag=dt(ng)*VEG(ng)%cv_veg(i,j,k)*v(i,j,k,nnew)*oHz(i,k)
++              DiaV3wrk(i,j,k,M3fveg)=DiaV3wrk(i,j,k,M3fveg)-fdiag
++              DiaV3wrk(i,j,k,M3vvis)=DiaV3wrk(i,j,k,M3vvis)+fdiag
++#   endif
+ #  endif
+             END DO
+           END DO
+@@ -1144,6 +1174,9 @@
+ # ifdef DIAGNOSTICS_UV
+             Dwrk(i,M2pgrd)=DiaV3wrk(i,j,1,M3pgrd)*Hzk(i,1)
+             Dwrk(i,M2bstr)=DiaV3wrk(i,j,1,M3vvis)*Hzk(i,1)
++#  if defined VEGETATION && defined VEG_DRAG
++            Dwrk(i,M2fveg)=DiaV3wrk(i,j,1,M3fveg)*Hzk(i,1)
++#  endif
+ #  ifdef UV_COR
+             Dwrk(i,M2fcor)=DiaV3wrk(i,j,1,M3fcor)*Hzk(i,1)
+ #  endif
+@@ -1186,6 +1219,9 @@
+      &                       DiaV3wrk(i,j,k,M3pgrd)*Hzk(i,k)
+               Dwrk(i,M2bstr)=Dwrk(i,M2bstr)+                            &
+      &                       DiaV3wrk(i,j,k,M3vvis)*Hzk(i,k)
++#  if defined VEGETATION && defined VEG_DRAG
++              Dwrk(i,M2fveg)=Dwrk(i,M2fveg)+DiaV3wrk(i,j,k,M3fveg)*Hzk(i,k)
++#  endif
+ #  ifdef UV_COR
+               Dwrk(i,M2fcor)=Dwrk(i,M2fcor)+                            &
+      &                       DiaV3wrk(i,j,k,M3fcor)*Hzk(i,k)
+@@ -1275,6 +1311,9 @@
+      &                               Dwrk(i,M2pgrd)
+               DiaV3wrk(i,j,k,M3vvis)=DiaV3wrk(i,j,k,M3vvis)-            &
+      &                               Dwrk(i,M2bstr)
++#  if defined VEGETATION && defined VEG_DRAG
++              DiaV3wrk(i,j,k,M3fveg)=DiaV3wrk(i,j,k,M3fveg)-Dwrk(i,M2fveg)
++#  endif
+ #  ifdef UV_COR
+               DiaV3wrk(i,j,k,M3fcor)=DiaV3wrk(i,j,k,M3fcor)-            &
+      &                               Dwrk(i,M2fcor)
+--- a/ROMS/Nonlinear/step2d_FB.h	2026-11-04 02:32:34.398382129 +0000
++++ b/ROMS/Nonlinear/step2d_FB.h	2026-11-04 02:32:34.447453512 +0000
+@@ -1787,6 +1787,50 @@
+ !  step2d_LF_AM3.h: DiaU2int is the integral over the fast steps so
+ !  far, DiaU2wrk its fast-time average with the weights of DU_avg1.
+ !
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++!
++!  roms-diag-implicit-drag: the implicit canopy drag of this fast step
++!  (the denominator of the update above), in the units of DiaU2rhs.
++!
++      DO j=Jstr,Jend
++        DO i=IstrU,Iend
++          DiaU2rhs(i,j,M2fveg)=DiaU2rhs(i,j,M2fveg)-                    &
++     &                         VEG(ng)%c2u_veg(i,j)*ubar(i,j,knew)*     &
++     &                         4.0_r8/((pm(i,j)+pm(i-1,j))*             &
++     &                                 (pn(i,j)+pn(i-1,j)))
++        END DO
++      END DO
++      DO j=JstrV,Jend
++        DO i=Istr,Iend
++          DiaV2rhs(i,j,M2fveg)=DiaV2rhs(i,j,M2fveg)-                    &
++     &                         VEG(ng)%c2v_veg(i,j)*vbar(i,j,knew)*     &
++     &                         4.0_r8/((pm(i,j)+pm(i,j-1))*             &
++     &                                 (pn(i,j)+pn(i,j-1)))
++        END DO
++      END DO
++#endif
++#ifdef BSTRESS_IMPLICIT
++!
++!  roms-diag-implicit-drag: the implicit part of the bottom stress
++!  (DiaRUfrc(:,:,3,M2bstr) holds only the explicit remainder).
++!
++      DO j=Jstr,Jend
++        DO i=IstrU,Iend
++          DiaU2rhs(i,j,M2bstr)=DiaU2rhs(i,j,M2bstr)-                    &
++     &                         FORCES(ng)%c2bu(i,j)*ubar(i,j,knew)*     &
++     &                         4.0_r8/((pm(i,j)+pm(i-1,j))*             &
++     &                                 (pn(i,j)+pn(i-1,j)))
++        END DO
++      END DO
++      DO j=JstrV,Jend
++        DO i=Istr,Iend
++          DiaV2rhs(i,j,M2bstr)=DiaV2rhs(i,j,M2bstr)-                    &
++     &                         FORCES(ng)%c2bv(i,j)*vbar(i,j,knew)*     &
++     &                         4.0_r8/((pm(i,j)+pm(i,j-1))*             &
++     &                                 (pn(i,j)+pn(i,j-1)))
++        END DO
++      END DO
++#endif
+ # ifdef MASKING
+       DO idiag=1,NDM2d-1
+         DO j=Jstr,Jend
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h	2026-11-04 02:32:34.400853937 +0000
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h	2026-11-04 03:23:04.240260730 +0000
+@@ -2299,6 +2299,23 @@
+       END DO
+ # endif
+ #endif
++#if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT && \
++    defined DIAGNOSTICS_UV
++!
++!  roms-diag-implicit-drag: no explicit canopy drag here; start from zero
++!  (the implicit drag is added with the corrector below).
++!
++      DO j=Jstr,Jend
++        DO i=IstrU,Iend
++          DiaU2rhs(i,j,M2fveg)=0.0_r8
++        END DO
++      END DO
++      DO j=JstrV,Jend
++        DO i=Istr,Iend
++          DiaV2rhs(i,j,M2fveg)=0.0_r8
++        END DO
++      END DO
++#endif
+ #if defined VEGETATION && defined VEG_DRAG && defined SOLVE3D && \
+     !defined VEG_DRAG_IMPLICIT
+ !
+@@ -2956,6 +2973,56 @@
+           END DO
+         END DO
+       END IF
++#  if (defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT) || defined BSTRESS_IMPLICIT
++!
++!  roms-diag-implicit-drag: the implicit canopy drag and bottom stress of
++!  the corrector (the denominator of the update), with its full weight,
++!  not the AM3 weights above.
++!
++      IF (CORRECTOR_2D_STEP) THEN
++        cff1=0.5_r8*dtfast(ng)
++#   if defined VEGETATION && defined VEG_DRAG && defined VEG_DRAG_IMPLICIT
++        DO j=Jstr,Jend
++          DO i=IstrU,Iend
++            cff=-VEG(ng)%c2u_veg(i,j)*ubar(i,j,knew)*                         &
++     &          4.0_r8/((pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j)))
++            DiaU2int(i,j,M2fveg)=DiaU2int(i,j,M2fveg)+cff1*cff
++            DiaU2wrk(i,j,M2fveg)=DiaU2wrk(i,j,M2fveg)+                    &
++     &                          cff1*cff*(pm(i-1,j)+pm(i,j))*fac
++          END DO
++        END DO
++        DO j=JstrV,Jend
++          DO i=Istr,Iend
++            cff=-VEG(ng)%c2v_veg(i,j)*vbar(i,j,knew)*                         &
++     &          4.0_r8/((pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1)))
++            DiaV2int(i,j,M2fveg)=DiaV2int(i,j,M2fveg)+cff1*cff
++            DiaV2wrk(i,j,M2fveg)=DiaV2wrk(i,j,M2fveg)+                    &
++     &                          cff1*cff*(pn(i,j)+pn(i,j-1))*fac
++          END DO
++        END DO
++#   endif
++#   ifdef BSTRESS_IMPLICIT
++        DO j=Jstr,Jend
++          DO i=IstrU,Iend
++            cff=-FORCES(ng)%c2bu(i,j)*ubar(i,j,knew)*                         &
++     &          4.0_r8/((pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j)))
++            DiaU2int(i,j,M2bstr)=DiaU2int(i,j,M2bstr)+cff1*cff
++            DiaU2wrk(i,j,M2bstr)=DiaU2wrk(i,j,M2bstr)+                    &
++     &                          cff1*cff*(pm(i-1,j)+pm(i,j))*fac
++          END DO
++        END DO
++        DO j=JstrV,Jend
++          DO i=Istr,Iend
++            cff=-FORCES(ng)%c2bv(i,j)*vbar(i,j,knew)*                         &
++     &          4.0_r8/((pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1)))
++            DiaV2int(i,j,M2bstr)=DiaV2int(i,j,M2bstr)+cff1*cff
++            DiaV2wrk(i,j,M2bstr)=DiaV2wrk(i,j,M2bstr)+                    &
++     &                          cff1*cff*(pn(i,j)+pn(i,j-1))*fac
++          END DO
++        END DO
++#   endif
++      END IF
++#  endif
+ # else
+ !
+ !  Time-step the diagnostic terms.

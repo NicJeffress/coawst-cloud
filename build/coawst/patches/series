@@ -33,6 +33,7 @@
 1-fixes/swan-halo-hang.patch
 1-fixes/swan-exact-restart.patch
 1-fixes/swan-triads-nonstationary.patch
+1-fixes/swan-bkd-exact-restart.patch
 
 # 2. Improvements
 2-improvements/swan-netcdf-output.patch
@@ -46,3 +47,4 @@
 3-experimental/roms-veg-implicit.patch
 3-experimental/roms-bstress-implicit.patch
 3-experimental/wec-break-uniform.patch
+3-experimental/roms-diag-implicit-drag.patch

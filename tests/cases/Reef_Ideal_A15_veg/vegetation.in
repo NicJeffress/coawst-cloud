@@ -150,3 +150,7 @@ Hout(idTmbp)   == F       ! marsh_biomass_peak Amount of marsh biomass peak
 !  ALPHA_PDIAM    Marsh vegetation growth parameter 1 for diameter.
 ! 
 !  BETA_PDIAM     Marsh vegetation growth parameter 2 for diameter.
+
+! Canopy drag in the momentum budget (roms-diag-implicit-drag)
+Dout(M2fveg) == T
+Dout(M3fveg) == T
