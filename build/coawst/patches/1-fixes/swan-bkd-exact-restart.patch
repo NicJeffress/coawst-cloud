@@ -1,0 +1,48 @@
+--- a/SWAN/src/swancom1.ftn	2026-11-04 02:38:07.872538882 +0000
++++ b/SWAN/src/swancom1.ftn	2026-11-04 02:38:07.894751525 +0000
+@@ -2374,7 +2374,11 @@
+ !$OMP BARRIER                                                             40.22
+ !
+ !       --- check if breaker index for BKD needs to be modified           41.96
+-        IF (MODGAM .AND. ACCUR.GE.PNUMS(37)) MODGAM = .FALSE.             41.96
++        IF (MODGAM .AND. ACCUR.GE.PNUMS(37)) THEN                         41.96
++           MODGAM = .FALSE.                                               41.96
++           WRITE (PRINTF,*) 'BKD breaker index frozen at ', CHTIME,
++     &                      ' accuracy ', ACCUR
++        END IF
+ !
+ !       *** if accuracy has been reached then the iteration ***
+ !       *** can be terminated ---> goto 470                 ***
+--- a/SWAN/src/swanmain.ftn	2026-11-04 02:38:07.868842185 +0000
++++ b/SWAN/src/swanmain.ftn	2026-11-04 02:38:07.895842123 +0000
+@@ -1026,6 +1026,7 @@
+           OPEN (NREF, FILE=TRIM(SwanRstName(ng)), FORM='UNFORMATTED',
+      &          STATUS='OLD', POSITION='APPEND')
+           WRITE (NREF) COMPDA(1:MCGRD,1:MCMVAR)
++          WRITE (NREF) MODGAM
+           CLOSE (NREF)
+         END IF
+       END IF
+--- a/SWAN/src/swanpre1.ftn	2026-11-04 02:38:07.864972748 +0000
++++ b/SWAN/src/swanpre1.ftn	2026-11-04 02:38:38.084161794 +0000
+@@ -6917,6 +6917,7 @@
+       INTEGER    KGRPNT(MXC,MYC)                                          40.00
+       INTEGER JXMAX, JYMAX, NPTOT                                         40.80 40.62
+       REAL       AC2(MDC,MSC,MCGRD)                                       40.31
++      LOGICAL LMODG
+       LOGICAL SINGLEHOT, PTNSUBGRD                                        40.62
+       LOGICAL    KEYWIS, LERR                                             40.31 40.00
+       CHARACTER  RLINE *80                                                40.00
+@@ -7216,6 +7217,12 @@
+            READ (NREF, IOSTAT=IOS) HotCompdaPost
+            HotPost = IOS.EQ.0
+            IF (.NOT.HotPost) DEALLOCATE(HotCompdaPost)
++!          BKD's one-way switch (swan-bkd-exact-restart); older files
++!          have no such record and leave it as it is
++           IF (HotPost) THEN
++              READ (NREF, IOSTAT=IOS) LMODG
++              IF (IOS.EQ.0) MODGAM = LMODG
++           ENDIF
+            WRITE (PRINTF, *) 'full SWAN state read (exact restart)',
+      &                       HotPost
+          ENDIF
