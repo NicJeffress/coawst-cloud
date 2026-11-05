@@ -197,6 +197,7 @@ before and after, and its limits.
 | [roms-veg-implicit](build/coawst/patches/3-experimental/roms-veg-implicit.md) | `VEG_DRAG_IMPLICIT` | canopy drag taken implicitly: no time-step limit for dense or patchy canopies | stable where explicit drag blows up; within 1 cm/s of explicit at a safe step |
 | [roms-bstress-implicit](build/coawst/patches/3-experimental/roms-bstress-implicit.md) | `BSTRESS_IMPLICIT` | bottom stress taken implicitly instead of capped | the full stress where `LIMIT_BSTRESS` would bind (thin bottom layers under fast flow); matches the uncapped explicit stress to 1 % on thin-crest A15 variants |
 | [wec-break-uniform](build/coawst/patches/3-experimental/wec-break-uniform.md) | `WEC_BREAK_UNIFORM` | breaking force spread evenly over depth | a sensitivity switch |
+| [roms-stokes-interval](build/coawst/patches/3-experimental/roms-stokes-interval.md) | `STOKES_INTERVAL` | spectral Stokes drift updated less often than every step | about 2x faster on a reef case; tested on one case |
 
 Switch one on with `-- --build-arg CPP_OPTIONS="+VEG_DRAG_IMPLICIT"`.
 

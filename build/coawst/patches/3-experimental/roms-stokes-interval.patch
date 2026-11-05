@@ -1,0 +1,173 @@
+diff -ruN a/ROMS/Modules/mod_scalars.F b/ROMS/Modules/mod_scalars.F
+--- a/ROMS/Modules/mod_scalars.F
++++ b/ROMS/Modules/mod_scalars.F
+@@ -1892,6 +1892,13 @@
+ !   [1.0] All wave dissipation goes to roller and none to breaking
+ !
+         real(r8), allocatable :: wec_alpha(:)
++#ifdef STOKES_INTERVAL
++!
++! Spectral Stokes drift updates per wave-to-ocean coupling interval
++! (3-experimental/roms-stokes-interval): 0 = every baroclinic step.
++!
++        integer, allocatable :: stokes_ncpl(:)
++#endif
+ 
+ #if defined MY25_MIXING || defined GLS_MIXING
+ !
+@@ -3577,6 +3584,13 @@
+         allocate ( wec_alpha(Ngrids) )
+         Dmem(1)=Dmem(1)+REAL(Ngrids,r8)
+       END IF
++#ifdef STOKES_INTERVAL
++      IF (.not.allocated(stokes_ncpl)) THEN
++        allocate ( stokes_ncpl(Ngrids) )
++        Dmem(1)=Dmem(1)+REAL(Ngrids,r8)
++        stokes_ncpl=0
++      END IF
++#endif
+ !
+       RETURN
+       END SUBROUTINE allocate_scalars
+diff -ruN a/ROMS/Nonlinear/WEC/wec_stokes.F b/ROMS/Nonlinear/WEC/wec_stokes.F
+--- a/ROMS/Nonlinear/WEC/wec_stokes.F
++++ b/ROMS/Nonlinear/WEC/wec_stokes.F
+@@ -41,6 +41,11 @@
+ # endif
+       USE mod_ocean
+       USE mod_scalars
++# ifdef STOKES_INTERVAL
++      USE mct_coupler_params, ONLY : nOCNFWAV
++      USE mod_iounits,     ONLY : stdout
++      USE mod_parallel,    ONLY : Master
++# endif
+ !
+       USE bc_3d_mod,       ONLY : bc_w3d_tile
+       USE exchange_2d_mod, ONLY : exchange_u2d_tile, exchange_v2d_tile
+@@ -287,6 +292,14 @@
+       integer  :: nlo, nden
+       real(dp), dimension(MSCs) :: Flo, Fhi, den
+ #  endif
++#  if defined SPECTRUM_STOKES && defined STOKES_INTERVAL
++!  Update the spectral sums on this step? The depth-integrated and
++!  vertical Stokes velocities below are still recomputed every step
++!  from the held u_stokes and the current Hz, so the 2-D and 3-D Stokes
++!  transports stay consistent.
++      logical  :: update_stokes
++      integer  :: nstep_stokes
++#  endif
+ # endif
+ 
+ # include "set_bounds.h"
+@@ -297,6 +310,27 @@
+ !
+       fac1=1.0_r8/dt(ng)
+       fac2=1.0_r8/g
++# if defined SPECTRUM_STOKES && defined STOKES_INTERVAL
++!
++!  Same phase as the wave-to-ocean exchange (ocean_coupling): SWAN's new
++!  spectrum arrives when MOD(iic-1,nOCNFWAV) = 0. Always on the first
++!  step of a run. Keep restarts on a multiple of the update interval.
++!
++      update_stokes=.TRUE.
++      IF (stokes_ncpl(ng).gt.0) THEN
++        nstep_stokes=nOCNFWAV(1,1)/stokes_ncpl(ng)
++        IF ((nstep_stokes.lt.1).or.                                     &
++     &      (MOD(nOCNFWAV(1,1),stokes_ncpl(ng)).ne.0)) THEN
++          IF (Master) WRITE (stdout,'(a,2i8)')                          &
++     &      ' WEC_STOKES - STOKES_NCPL must divide the coupling steps:',&
++     &      stokes_ncpl(ng), nOCNFWAV(1,1)
++          exit_flag=5
++          RETURN
++        END IF
++        update_stokes=(iic(ng).eq.ntstart(ng)).or.                      &
++     &                (MOD(iic(ng)-1,nstep_stokes).eq.0)
++      END IF
++# endif
+ 
+       DO j=Jstr-1,Jend+1
+         DO i=Istr-1,Iend+1
+@@ -392,6 +426,9 @@
+ ! to eliminate unneccessary EXP,COSH,SINH calls at depths where 
+ ! Stokes drift is negligible
+ !
++#  ifdef STOKES_INTERVAL
++      IF (update_stokes) THEN
++#  endif
+       DO j=Jstr,Jend
+         DO i=IstrU,Iend
+           fac3=Dstp(i-1,j)+Dstp(i,j)
+@@ -504,6 +541,9 @@
+           END DO
+         END DO
+       END DO
++#  ifdef STOKES_INTERVAL
++      END IF
++#  endif
+ # endif
+ !
+ !  Compute v-stokes velocity
+@@ -552,6 +592,9 @@
+ ! to eliminate unneccessary EXP,COSH,SINH calls at depths where 
+ ! Stokes drift is negligible
+ !
++#  ifdef STOKES_INTERVAL
++      IF (update_stokes) THEN
++#  endif
+       DO j=JstrV,Jend
+         DO i=Istr,Iend
+           fac3=Dstp(i,j-1)+Dstp(i,j)
+@@ -660,12 +703,18 @@
+           END DO
+         END DO
+       END DO
++#  ifdef STOKES_INTERVAL
++      END IF
++#  endif
+ # endif
+ !
+ !-----------------------------------------------------------------------
+ ! Set lateral boundary conditions.
+ !-----------------------------------------------------------------------
+ !
++#  if defined SPECTRUM_STOKES && defined STOKES_INTERVAL
++      IF (update_stokes) THEN
++#  endif
+       CALL wec_u3dbc_tile (ng, tile,                                    &
+      &                     LBi, UBi, LBj, UBj, N(ng),                   &
+      &                     IminS, ImaxS, JminS, JmaxS,                  &
+@@ -691,6 +740,9 @@
+      &                    EWperiodic(ng), NSperiodic(ng),               &
+      &                    u_stokes, v_stokes)
+ # endif
++#  if defined SPECTRUM_STOKES && defined STOKES_INTERVAL
++      END IF
++#  endif
+ !
+ !  Compute vertical stokes velocity, Eqn. 31.
+ !
+diff -ruN a/ROMS/Utility/read_phypar.F b/ROMS/Utility/read_phypar.F
+--- a/ROMS/Utility/read_phypar.F
++++ b/ROMS/Utility/read_phypar.F
+@@ -1004,6 +1004,10 @@
+               Npts=load_r(Nval, Rval, Ngrids, crgban_cw)
+             CASE ('WEC_ALPHA')
+               Npts=load_r(Nval, Rval, Ngrids, wec_alpha)
++#ifdef STOKES_INTERVAL
++            CASE ('STOKES_NCPL')
++              Npts=load_i(Nval, Rval, Ngrids, stokes_ncpl)
++#endif
+             CASE ('RDRG')
+               Npts=load_r(Nval, Rval, Ngrids, rdrg)
+             CASE ('RDRG2')
+@@ -5681,6 +5685,10 @@
+      &          'Factor for Craig/Banner surface tke flux.'
+           WRITE (out,140) wec_alpha(ng), 'wec_alpha',                   &
+      &          'WEC factor for roller/breaking energy distribution.'
++#ifdef STOKES_INTERVAL
++          WRITE (out,'(1x,i10,2x,a,t32,a)') stokes_ncpl(ng),            &
++     &          'stokes_ncpl', 'Stokes updates per coupling (0: every step).'
++#endif
+ # endif
+ # ifdef FORWARD_MIXING
+           DO i=1,NAT+NPT
