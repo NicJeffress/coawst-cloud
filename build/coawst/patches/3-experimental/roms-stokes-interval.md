@@ -50,7 +50,7 @@ Reef_Ideal_A15_veg, density 1, DT 2.5 s, N 15, 34 frequencies, 24 h, against eve
 - The momentum budget by zone is unchanged to three decimals at all three, and closes to about 1e-10.
 - `STOKES_NCPL` 0: all 62 history and 83 diagnostic variables bit-identical to the build without the patch (2 h).
 - `STOKES_NCPL` 1, 8 h with a restart at 4 h: bit-identical to the straight run from hour 5 in every variable. The first history record after a restart differs only in the output-only fields, as without the patch.
-- Beyond 2 km from shore the flow differs by 7-30 % rms at all three, and that barely shrinks with the interval; see the twin test in the test's README.
+- Beyond 2 km from shore, hourly snapshots differ by 7-30 % rms at all three. Past 3 km the flow amplifies small differences, so late in the run that barely shrinks with the interval, but tide means do: offshore-going transport stays within 0.13 % at 30 s, and at 120 s departs by 1 % at 3.5-4 km and 4 % at 4.9 km, next to the 5 km boundary. Details in the test's README. Use 30 s if the far field will be read.
 
 ## Limits
 
