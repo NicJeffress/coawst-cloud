@@ -1,0 +1,15 @@
+--- a/SWAN/src/swancom1.ftn
++++ b/SWAN/src/swancom1.ftn
+@@ -2374,11 +2374,7 @@
+ !$OMP BARRIER                                                             40.22
+ !
+ !       --- check if breaker index for BKD needs to be modified           41.96
+-        IF (MODGAM .AND. ACCUR.GE.PNUMS(37)) THEN                         41.96
+-           MODGAM = .FALSE.                                               41.96
+-           WRITE (PRINTF,*) 'BKD breaker index frozen at ', CHTIME,
+-     &                      ' accuracy ', ACCUR
+-        END IF
++!       debug: BKD breaker index never frozen
+ !
+ !       *** if accuracy has been reached then the iteration ***
+ !       *** can be terminated ---> goto 470                 ***

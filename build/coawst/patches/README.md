@@ -13,6 +13,11 @@ Several patches edit the same files, so they only apply in this order. An
 experimental patch moves to the improvements after an accuracy test against a
 converged reference.
 
+`9-debug/` holds one-off sensitivity and debug patches (a hard-coded constant
+changed, a restart trace). They are not in `series` and never in a default build;
+they are kept so the tests behind some results can be repeated
+([9-debug/README.md](9-debug/README.md)).
+
 Each patch is documented here with a status card:
 
 | Field | Meaning |

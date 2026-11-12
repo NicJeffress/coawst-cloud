@@ -1,0 +1,356 @@
+--- a/ROMS/Nonlinear/main3d.F	2026-11-03 16:31:49.398713364 +0000
++++ b/ROMS/Nonlinear/main3d.F	2026-11-03 18:37:24.062218097 +0000
+@@ -353,7 +353,9 @@
+             DO ig=1,GridsInLayer(nl)
+               ng=GridNumber(ig,nl)
+               IF (iic(ng).eq.ntstart(ng)) THEN
++                CALL dbg_step (1, 'ipre')
+                 CALL post_initial (ng, iNLM)
++                CALL dbg_step (1, 'ipst')
+               END IF
+             END DO
+ # endif
+@@ -398,10 +400,12 @@
+ !-----------------------------------------------------------------------
+ !  Couple ocean to atmosphere and wave model grids.
+ !-----------------------------------------------------------------------
++            CALL dbg_step (1, 'top')
+             IF (iic(ng).ne.ntstart(ng)) THEN
+               CALL ocean_coupling (nl)
+             END IF
+ # endif
++            CALL dbg_step (1, 'cpl')
+ # if defined INWAVE_MODEL
+ !
+ !-----------------------------------------------------------------------
+@@ -438,6 +442,7 @@
+             END DO
+             IF (FoundError(exit_flag, NoError, __LINE__, MyFile)) RETURN
+ # endif
++            CALL dbg_step (1, 'wec')
+ !
+ !-----------------------------------------------------------------------
+ !  Set fields for vertical boundary conditions. Process tidal forcing,
+@@ -470,6 +475,7 @@
+               END DO
+ !$OMP BARRIER
+             END DO
++            CALL dbg_step (1, 'vbc')
+ 
+ # ifdef NESTING
+ !
+@@ -560,6 +566,7 @@
+               END DO
+ !$OMP BARRIER
+             END DO
++            CALL dbg_step (1, 'mix')
+ 
+ # if !(defined STEP2D_FB_AB3_AM4 || defined STEP2D_FB_LF_AM3) || \
+        defined DIAGNOSTICS       || defined AVERAGES
+@@ -586,6 +593,7 @@
+ !$OMP BARRIER
+             END DO
+ # endif
++            CALL dbg_step (1, 'avg')
+ 
+ # ifdef NESTING
+ !
+@@ -617,6 +625,7 @@
+                 RETURN
+               END IF
+             END DO
++            CALL dbg_step (1, 'out')
+ 
+ # ifdef NESTING
+ !
+@@ -659,6 +668,7 @@
+               END DO
+ !$OMP BARRIER
+             END DO
++            CALL dbg_step (1, 'rhs')
+ 
+ # ifdef NESTING
+ !
+@@ -705,6 +715,7 @@
+                     END DO
+ !$OMP BARRIER
+                   END IF
++                  CALL dbg_step (1, 'fast')
+                 END IF
+               END DO
+ 
+@@ -971,6 +982,7 @@
+             END DO
+ # endif
+ 
++            CALL dbg_step (1, '2d')
+ # if !(defined STEP2D_FB_AB3_AM4 || defined STEP2D_FB_LF_AM3)
+ !
+ !-----------------------------------------------------------------------
+@@ -1012,6 +1024,7 @@
+               END DO
+ !$OMP BARRIER
+             END DO
++            CALL dbg_step (1, 'uv')
+ 
+ # ifdef NESTING
+ !
+@@ -1053,6 +1066,7 @@
+               END DO
+ !$OMP BARRIER
+             END DO
++            CALL dbg_step (1, 'turb')
+ 
+ # if defined VEGETATION && defined MARSH_DYNAMICS
+ !
+@@ -1181,6 +1195,7 @@
+               step_counter(ng)=step_counter(ng)-1
+               CALL time_string (time(ng), time_code(ng))
+             END DO
++            CALL dbg_step (1, 'end')
+ 
+           END DO STEP_LOOP
+ 
+@@ -1190,6 +1205,192 @@
+ 
+       RETURN
+       END SUBROUTINE main3d
++
++!
++!  Restart trace (debug only, not a project patch): bit-exact checksums of
++!  the main arrays after each phase of steps 301-410, one file per rank.
++!
++      SUBROUTINE dbg_step (ng, tag)
++      USE mod_param
++      USE mod_parallel
++      USE mod_scalars
++      USE mod_ocean
++      USE mod_grid
++      USE mod_coupling
++      USE mod_forces
++      USE mod_mixing
++      USE mod_stepping
++# ifdef VEG_DRAG_IMPLICIT
++      USE mod_vegetation
++# endif
++      implicit none
++      integer, intent(in) :: ng
++      character (len=*), intent(in) :: tag
++      integer :: un, Is, Ie, Js, Je, L0, L1, M0, M1, n1, n2, n12
++      character (len=32) :: fname
++      character (len=8) :: tg
++      IF ((tag(1:1).ne.'i').and.                                      &
++     &    ((iic(ng).lt.301).or.(iic(ng).gt.410))) RETURN
++      IF ((tag.eq.'fast').and.(iic(ng).gt.302)) RETURN
++      un=900+MyRank
++      WRITE (fname,'(a,i3.3,a)') 'dbg_rank', MyRank, '.txt'
++      OPEN (un, FILE=TRIM(fname), POSITION='append')
++      tg=tag
++      IF (tag.eq.'fast') WRITE (tg,'(a,i2.2,a,i1,a,i1)') 'f', iif(ng), 'k', &
++     &                         kstp(ng), 'n', knew(ng)
++      L0=BOUNDS(ng)%LBi(MyRank); L1=BOUNDS(ng)%UBi(MyRank)
++      M0=BOUNDS(ng)%LBj(MyRank); M1=BOUNDS(ng)%UBj(MyRank)
++      Is=BOUNDS(ng)%IstrR(MyRank)-L0+1; Ie=BOUNDS(ng)%IendR(MyRank)-L0+1
++      Js=BOUNDS(ng)%JstrR(MyRank)-M0+1; Je=BOUNDS(ng)%JendR(MyRank)-M0+1
++      n1=L1-L0+1; n2=M1-M0+1; n12=n1*n2
++#define H(nm,a) CALL dbg_h (un,iic(ng),TRIM(tg),nm,a,n1,n2,SIZE(a)/n12,Is,Ie,Js,Je)
++      H('zeta', OCEAN(ng)%zeta)
++      CALL dbg_l4 (un, iic(ng), tag, 'zeta', OCEAN(ng)%zeta, n1, n2,    &
++     &             SIZE(OCEAN(ng)%zeta)/n12, Is, Ie, Js, Je, L0, M0)
++      CALL dbg_l4 (un, iic(ng), tag, 'ubar', OCEAN(ng)%ubar, n1, n2,    &
++     &             SIZE(OCEAN(ng)%ubar)/n12, Is, Ie, Js, Je, L0, M0)
++      H('ubar', OCEAN(ng)%ubar)
++      H('vbar', OCEAN(ng)%vbar)
++      H('rubar', OCEAN(ng)%rubar)
++      H('rvbar', OCEAN(ng)%rvbar)
++      H('rzeta', OCEAN(ng)%rzeta)
++      H('u', OCEAN(ng)%u)
++      H('v', OCEAN(ng)%v)
++      H('t', OCEAN(ng)%t)
++      H('ru', OCEAN(ng)%ru)
++      H('rv', OCEAN(ng)%rv)
++      H('W', OCEAN(ng)%W)
++# ifdef WEC
++      H('u_stokes', OCEAN(ng)%u_stokes)
++      H('v_stokes', OCEAN(ng)%v_stokes)
++      H('ubar_stokes', OCEAN(ng)%ubar_stokes)
++      H('vbar_stokes', OCEAN(ng)%vbar_stokes)
++# endif
++      H('Hz', GRID(ng)%Hz)
++      H('rhoA', COUPLING(ng)%rhoA)
++      H('rhoS', COUPLING(ng)%rhoS)
++# ifdef WEC_VF
++      H('zetaw', OCEAN(ng)%zetaw)
++      H('qsp', OCEAN(ng)%qsp)
++      H('bh', OCEAN(ng)%bh)
++# endif
++# ifdef BSTRESS_IMPLICIT
++      H('kbu', FORCES(ng)%kbu)
++      H('c2bu', FORCES(ng)%c2bu)
++      H('rbu', FORCES(ng)%rbu)
++      H('kbv', FORCES(ng)%kbv)
++# endif
++# ifdef VEG_DRAG_IMPLICIT
++      H('cu_veg', VEG(ng)%cu_veg)
++      H('c2u_veg', VEG(ng)%c2u_veg)
++# endif
++      H('z_w', GRID(ng)%z_w)
++      H('z_r', GRID(ng)%z_r)
++      H('Huon', GRID(ng)%Huon)
++      H('Hvom', GRID(ng)%Hvom)
++      H('Zt_avg1', COUPLING(ng)%Zt_avg1)
++      H('DU_avg1', COUPLING(ng)%DU_avg1)
++      H('DU_avg2', COUPLING(ng)%DU_avg2)
++      H('DV_avg1', COUPLING(ng)%DV_avg1)
++      H('DV_avg2', COUPLING(ng)%DV_avg2)
++      H('rufrc', COUPLING(ng)%rufrc)
++      H('rvfrc', COUPLING(ng)%rvfrc)
++      H('bustr', FORCES(ng)%bustr)
++      H('bvstr', FORCES(ng)%bvstr)
++      H('sustr', FORCES(ng)%sustr)
++      H('svstr', FORCES(ng)%svstr)
++# ifdef WAVES_HEIGHT
++      H('Hwave', FORCES(ng)%Hwave)
++# endif
++# ifdef WAVES_DIR
++      H('Dwave', FORCES(ng)%Dwave)
++# endif
++# ifdef WAVES_LENGTH
++      H('Lwave', FORCES(ng)%Lwave)
++# endif
++# ifdef WAVES_LENGTHP
++      H('Lwavep', FORCES(ng)%Lwavep)
++# endif
++# ifdef WAVES_TOP_PERIOD
++      H('Pwave_top', FORCES(ng)%Pwave_top)
++# endif
++# ifdef WAVES_BOT_PERIOD
++      H('Pwave_bot', FORCES(ng)%Pwave_bot)
++# endif
++# if defined BBL_MODEL || defined BEDLOAD_VANDERA || defined WAVES_OCEAN
++      H('Uwave_rms', FORCES(ng)%Uwave_rms)
++# endif
++# if defined TKE_WAVEDISS   || defined WAVES_OCEAN    || \
++     defined WDISS_THORGUZA || defined WDISS_CHURTHOR || \
++     defined WAVES_DISS     || defined WDISS_INWAVE
++      H('Dissip_break', FORCES(ng)%Dissip_break)
++      H('Dissip_wcap', FORCES(ng)%Dissip_wcap)
++# endif
++      H('Akv', MIXING(ng)%Akv)
++      H('Akt', MIXING(ng)%Akt)
++# if defined GLS_MIXING || defined MY25_MIXING
++      H('tke', MIXING(ng)%tke)
++      H('gls', MIXING(ng)%gls)
++      H('Lscale', MIXING(ng)%Lscale)
++      H('Akk', MIXING(ng)%Akk)
++# endif
++#undef H
++      CLOSE (un)
++      RETURN
++      END SUBROUTINE dbg_step
++
++      SUBROUTINE dbg_l4 (un, step, tag, nm, a, n1, n2, n3, Is, Ie, Js, Je, &
++     &                   L0, M0)
++      USE mod_kinds
++      implicit none
++      integer, intent(in) :: un, step, n1, n2, n3, Is, Ie, Js, Je, L0, M0
++      character (len=*), intent(in) :: tag, nm
++      real(r8), intent(in) :: a(n1,n2,n3)
++      integer :: i, j, k, im, jm, km, nd
++      real(r8) :: d, dm
++      dm=0.0_r8; im=0; jm=0; km=0; nd=0
++      DO k=2,n3
++        DO j=Js,Je
++          DO i=Is,Ie
++            d=ABS(a(i,j,k)-a(i,j,1))
++            IF (d.gt.0.0_r8) nd=nd+1
++            IF (d.gt.dm) THEN
++              dm=d; im=i+L0-1; jm=j+M0-1; km=k
++            END IF
++          END DO
++        END DO
++      END DO
++      WRITE (un,'(a,i4,1x,a,1x,a,a,es10.3,a,3i5,a,i8)') 'L4 ', step, tag, nm, &
++     &  ' max|lev-lev1| ', dm, ' at i,j,lev ', im, jm, km, ' npts ', nd
++      RETURN
++      END SUBROUTINE dbg_l4
++
++      SUBROUTINE dbg_h (un, step, tag, nm, a, n1, n2, n3, Is, Ie, Js, Je)
++      USE mod_kinds
++      implicit none
++      integer, intent(in) :: un, step, n1, n2, n3, Is, Ie, Js, Je
++      character (len=*), intent(in) :: tag, nm
++      real(r8), intent(in) :: a(n1,n2,n3)
++      integer :: i, j, k
++      integer(8) :: hf, hi, hk(n3)
++      hf=0_8; hi=0_8
++      DO k=1,n3
++        hk(k)=0_8
++        DO j=1,n2
++          DO i=1,n1
++            hf=IEOR(ISHFTC(hf,7),TRANSFER(a(i,j,k)+0.0_r8,0_8))
++            IF ((i.ge.Is).and.(i.le.Ie).and.(j.ge.Js).and.(j.le.Je)) THEN
++              hi=IEOR(ISHFTC(hi,7),TRANSFER(a(i,j,k)+0.0_r8,0_8))
++              hk(k)=IEOR(ISHFTC(hk(k),7),TRANSFER(a(i,j,k)+0.0_r8,0_8))
++            END IF
++          END DO
++        END DO
++        hk(k)=IAND(IEOR(hk(k),ISHFT(hk(k),-32)),65535_8)
++      END DO
++      WRITE (un,'(i4,1x,a,1x,a,2(1x,z16.16),1x,100z4.4)') step, tag,   &
++     &  nm, hi, hf, (hk(k),k=1,n3)
++      RETURN
++      END SUBROUTINE dbg_h
+ #else
+       SUBROUTINE main3d
+       RETURN
+--- a/ROMS/Nonlinear/initial.F	2026-11-03 17:02:58.132502228 +0000
++++ b/ROMS/Nonlinear/initial.F	2026-11-03 17:02:58.146532107 +0000
+@@ -470,6 +470,7 @@
+         END IF
+       END DO
+ #endif
++      CALL dbg_step (1, 'iget')
+ 
+ #ifdef WET_DRY
+ !
+@@ -586,6 +587,7 @@
+       END DO
+ !
+ !-----------------------------------------------------------------------
++      CALL dbg_step (1, 'idep')
+ !  Compute initial horizontal mass fluxes, Hz*u/n and Hz*v/m.
+ !-----------------------------------------------------------------------
+ !
+@@ -616,6 +618,7 @@
+ !$OMP BARRIER
+       END DO
+ #endif
++      CALL dbg_step (1, 'iflx')
+ 
+ #ifdef ANA_PSOURCE
+ !
+@@ -728,6 +731,7 @@
+ !$OMP BARRIER
+       END DO
+ #endif
++      CALL dbg_step (1, 'imsk')
+ 
+ #if !defined CORRELATION
+ # ifdef NESTING
+@@ -904,6 +908,7 @@
+         END DO
+       END DO
+ #endif
++      CALL dbg_step (1, 'icpl')
+ #ifdef AIR_OCEAN
+ !
+ !-----------------------------------------------------------------------
+@@ -976,6 +981,7 @@
+         INItime(ng)=time(ng)
+         iic(ng)=ntstart(ng)
+         CALL time_string (time(ng), time_code(ng))
++      CALL dbg_step (1, 'iend')
+       END DO
+ 
+ #ifdef PROFILE

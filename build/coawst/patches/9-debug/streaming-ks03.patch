@@ -1,0 +1,11 @@
+--- a/ROMS/Nonlinear/WEC/wec_streaming.F
++++ b/ROMS/Nonlinear/WEC/wec_streaming.F
+@@ -265,7 +265,7 @@
+ # ifdef BOTTOM_STREAMING_XU_BOWEN
+       real(r8) ::  Beta, fosigma
+ # endif
+-      real(r8), parameter :: ks=0.03_r8
++      real(r8), parameter :: ks=0.30_r8
+       real(r8), parameter :: awd=1.0_r8
+       real(r8), parameter :: KWDmax=20.0_r8
+       real(r8), parameter :: eps = 1.0E-14_r8

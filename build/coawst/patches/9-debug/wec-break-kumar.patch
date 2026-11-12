@@ -1,0 +1,24 @@
+--- a/ROMS/Nonlinear/WEC/wec_vf.F	2026-11-04 03:32:18.292320453 +0000
++++ b/ROMS/Nonlinear/WEC/wec_vf.F	2026-11-04 03:32:18.306805842 +0000
+@@ -451,8 +451,10 @@
+ !
+           odiss(i,j)=0.0_r8
+ !         gamr(i,j)=MAX(MIN(0.707_r8*Dstp(i,j)/                         &
+-          gamr(i,j)=MAX(MIN(2.0_r8*0.707_r8*Dstp(i,j)/                  &
+-     &              (1.25_r8*Hwave(i,j)+eps),1.0_r8),0.0_r8)
++!         debug: Kumar et al. 2012 Eq. 30, cosh[2 pi (z+h)/H], H = Hs/sqrt(2);
++!         limited only so that cosh does not overflow in deep water
++          gamr(i,j)=MAX(MIN(1.414_r8*Dstp(i,j)/                         &
++     &              (Hwave(i,j)+eps),8.0_r8),0.0_r8)
+ #ifdef WEC_BREAK_UNIFORM
+ !  Test option (3-experimental/wec-break-uniform.patch): breaking
+ !  force spread evenly over the water column (cosh(0) = 1) instead of
+@@ -461,7 +463,7 @@
+ #endif
+           DO k=1,N(ng)
+             cff2=MAX(MIN((z_r(i,j,k)-z_w(i,j,0))*oDstp(i,j)*gamr(i,j),  &
+-     &           1.0_r8),0.0_r8)
++     &           8.0_r8),0.0_r8)
+             odiss(i,j)=odiss(i,j)+Hz(i,j,k)*                            &
+      &                   DCOSH(2.0_dp*pi*cff2)
+           END DO
