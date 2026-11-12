@@ -730,7 +730,7 @@ Recommendation: no run now. Note it as a known omission in the methods;
 when the encyclopedia's set-up and transport results are in, run the
 standalone `SURFBEAT` estimate on A15, and if IG energy on the reef flat
 is a significant fraction of the sea-swell energy, try InWave on A15
-(one member, one day) before deciding anything about Moorea.
+(one member, one day) before deciding anything about other domains.
 
 ## 4. SWAN numerics (`swan.in`)
 
